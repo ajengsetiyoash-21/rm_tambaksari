@@ -1,0 +1,227 @@
+/* --- Import Google Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* --- Reset & Base Styles --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+/* --- Navbar --- */
+nav {
+    background-color: #5a1a22; /* Warna merah marun gelap */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 8%;
+    color: white;
+    position: relative;
+    z-index: 10;
+}
+
+nav .logo {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+nav .login-nav {
+    background-color: #d9384e; /* Warna tombol merah terang */
+    color: white;
+    text-decoration: none;
+    padding: 8px 25px;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+
+nav .login-nav:hover {
+    background-color: #b52b3e;
+}
+
+/* --- Hero Section --- */
+.hero {
+    /* Gunakan gambar restoran sebagai background. 
+       Ganti URL di bawah ini dengan path gambar Anda, misal: url('../images/background-resto.jpg') */
+    background: linear-gradient(rgba(30, 10, 10, 0.7), rgba(30, 10, 10, 0.8)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=2070&auto=format&fit=crop') no-repeat center center/cover;
+    min-height: 80vh; /* Tinggi hero section */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8%;
+    color: white;
+    position: relative;
+}
+
+/* Teks di sebelah kiri */
+.hero-text {
+    flex: 1;
+    max-width: 600px;
+    z-index: 2;
+}
+
+.hero-text .small-title {
+    font-size: 18px;
+    font-weight: 400;
+    margin-bottom: 10px;
+    color: #f0f0f0;
+}
+
+.hero-text h1 {
+    font-size: 48px;
+    line-height: 1.2;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+
+.hero-text .description {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 30px;
+    color: #ddd;
+}
+
+.hero-text .btn-login {
+    display: inline-block;
+    background-color: #d9384e;
+    color: white;
+    text-decoration: none;
+    padding: 12px 30px;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(217, 56, 78, 0.4);
+}
+
+.hero-text .btn-login:hover {
+    background-color: #b52b3e;
+    transform: translateY(-2px);
+}
+
+/* Area Gambar di sebelah kanan */
+.hero-image {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+/* Efek bayangan dan bentuk bulat pada gambar makanan */
+.hero-image img {
+    width: 100%;
+    max-width: 450px;
+    border-radius: 50%; /* Membuat gambar menjadi bulat */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    border: 8px solid rgba(255, 255, 255, 0.1); /* Bingkai transparan tipis */
+    object-fit: cover;
+}
+
+/* --- Info Section --- */
+.info {
+    display: flex;
+    justify-content: space-around;
+    background-color: #ffffff;
+    padding: 40px 8%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    position: relative;
+    z-index: 5;
+    margin-top: -30px; /* Menarik section ini ke atas agar menumpuk hero */
+    border-radius: 10px;
+    margin-left: 5%;
+    margin-right: 5%;
+    margin-bottom: 40px;
+}
+
+.info div {
+    text-align: center;
+    max-width: 250px;
+}
+
+.info h3 {
+    font-size: 16px;
+    color: #5a1a22; /* Warna senada dengan navbar */
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.info p {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.4;
+}
+
+/* --- Footer --- */
+footer {
+    background-color: #5a1a22;
+    color: white;
+    text-align: center;
+    padding: 30px 20px;
+}
+
+footer h3 {
+    font-size: 18px;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+footer p {
+    font-size: 14px;
+    color: #ccc;
+    margin-bottom: 5px;
+}
+
+/* --- Responsive Design (Tampilan Mobile) --- */
+@media (max-width: 900px) {
+    .hero {
+        flex-direction: column;
+        text-align: center;
+        padding: 60px 5%;
+    }
+
+    .hero-text {
+        margin-bottom: 40px;
+    }
+
+    .hero-text h1 {
+        font-size: 32px;
+    }
+
+    .hero-image {
+        justify-content: center;
+    }
+
+    .info {
+        flex-direction: column;
+        gap: 30px;
+        align-items: center;
+        margin-top: 20px;
+        margin-left: 5%;
+        margin-right: 5%;
+    }
+}
+
+@media (max-width: 600px) {
+    nav {
+        padding: 15px 5%;
+    }
+    
+    .hero-text h1 {
+        font-size: 28px;
+    }
+    
+    .hero-image img {
+        max-width: 100%;
+    }
+}
