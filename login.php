@@ -255,7 +255,7 @@ if(isset($_POST['login'])){
 
         <!-- Footer Card -->
         <div class="login-footer">
-            <p>&copy; 2026 RM. Tambaksari Onggorawe Demak</p>
+            <p>&copy; 2026 RM. Tambaksari Onggorawe Demak - Made By Kelompok 01</p>
         </div>
 
     </div>
