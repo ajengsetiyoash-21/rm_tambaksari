@@ -2,570 +2,364 @@
 session_start();
 include "../../config.php";
 
-$no = 1;
-$ambildata = mysqli_query($db, "SELECT * FROM users ORDER BY id_user ASC");
-?>
+// Cek login admin
+if (!isset($_SESSION['status']) || $_SESSION['status'] != "login" || ($_SESSION['role'] ?? '') != "admin") {
+    header("Location: ../../login.php");
+    exit;
+}
 
+// Ambil data user
+$users = [];
+$ambildata = mysqli_query($db, "SELECT * FROM users ORDER BY id_user ASC");
+while ($ambildata && $row = mysqli_fetch_assoc($ambildata)) {
+    $users[] = $row;
+}
+$total_user = count($users);
+
+// Ikon SVG (sprite di bawah)
+function ico($id, $cls = 'i') { return '<svg class="' . $cls . '" aria-hidden="true"><use href="#i-' . $id . '"/></svg>'; }
+
+$role_valid  = ['admin', 'pelayan', 'koki'];
+$nama_admin  = htmlspecialchars($_SESSION['username'] ?? 'Admin');
+$inisial_adm = htmlspecialchars(strtoupper(substr($_SESSION['username'] ?? 'A', 0, 1)));
+?>
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Data Users - RM. Tambaksari</title>
-
-    <style>
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-
-        body {
-            background: #f5f1ed;
-            color: #333;
-        }
-
-        /* =========================
-           SIDEBAR
-        ========================= */
-
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 240px;
-            height: 100vh;
-            background: #5b1018;
-            color: white;
-            padding: 25px 15px;
-        }
-
-        .logo {
-            text-align: center;
-            margin-bottom: 35px;
-        }
-
-        .logo img {
-            width: 50px;
-            height: 50px;
-            object-fit: contain;
-            margin-bottom: 6px;
-        }
-
-        .logo h2 {
-            font-size: 18px;
-            color: white;
-        }
-
-        .logo p {
-            font-size: 12px;
-            color: #eadada;
-            margin-top: 5px;
-        }
-
-        .menu {
-            list-style: none;
-        }
-
-        .menu li {
-            margin-bottom: 8px;
-        }
-
-        .menu a {
-            display: block;
-            padding: 13px 15px;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-
-        .menu a:hover {
-            background: #8d2630;
-        }
-
-        .menu a.active {
-            background: #922733;
-        }
-
-        .menu .logout {
-            margin-top: 25px;
-        }
-
-        /* =========================
-           MAIN
-        ========================= */
-
-        .main {
-            margin-left: 240px;
-            padding: 30px;
-        }
-
-        /* =========================
-           HEADER
-        ========================= */
-
-        .topbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }
-
-        .topbar h1 {
-            color: #5b1018;
-            font-size: 28px;
-            margin-bottom: 5px;
-        }
-
-        .topbar p {
-            color: #555;
-            font-size: 15px;
-        }
-
-        .admin-name {
-            background: white;
-            padding: 10px 15px;
-            border-radius: 10px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-            font-size: 15px;
-        }
-
-        /* =========================
-           CONTENT BOX
-        ========================= */
-
-        .content-box {
-            background: white;
-            border-radius: 12px;
-            padding: 22px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.07);
-        }
-
-        .content-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .content-header h2 {
-            color: #5b1018;
-            font-size: 21px;
-        }
-
-        .btn-tambah {
-            display: inline-block;
-            background: #6d1720;
-            color: white;
-            text-decoration: none;
-            padding: 9px 15px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: bold;
-        }
-
-        .btn-tambah:hover {
-            background: #8d2630;
-        }
-
-        /* =========================
-           TABLE
-        ========================= */
-
-        .table-container {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-
-        th {
-            background: #6d1720;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-size: 13px;
-        }
-
-        td {
-            padding: 12px;
-            border-bottom: 1px solid #eeeeee;
-            font-size: 13px;
-        }
-
-        tr:hover td {
-            background: #fff8f5;
-        }
-
-        th:first-child,
-        td:first-child {
-            width: 70px;
-            text-align: center;
-        }
-
-        th:last-child,
-        td:last-child {
-            width: 180px;
-            text-align: center;
-        }
-
-        /* =========================
-           ROLE BADGE
-        ========================= */
-
-        .role {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-
-        .admin {
-            background: #ead8ff;
-            color: #5a2a8a;
-        }
-
-        .pelayan {
-            background: #dceeff;
-            color: #1961a5;
-        }
-
-        .koki {
-            background: #fff0d1;
-            color: #9a6100;
-        }
-
-        /* =========================
-           BUTTON
-        ========================= */
-
-        .btn-edit {
-            display: inline-block;
-            background: #1976d2;
-            color: white;
-            text-decoration: none;
-            padding: 6px 11px;
-            border-radius: 5px;
-            font-size: 12px;
-            margin-right: 4px;
-        }
-
-        .btn-edit:hover {
-            background: #125ca5;
-        }
-
-        .btn-hapus {
-            display: inline-block;
-            background: #dc3545;
-            color: white;
-            text-decoration: none;
-            padding: 6px 11px;
-            border-radius: 5px;
-            font-size: 12px;
-        }
-
-        .btn-hapus:hover {
-            background: #b52a37;
-        }
-
-        .kosong {
-            text-align: center;
-            color: #777;
-            padding: 25px;
-        }
-
-        /* =========================
-           RESPONSIVE
-        ========================= */
-
-        @media (max-width: 800px) {
-
-            .sidebar {
-                width: 210px;
-            }
-
-            .main {
-                margin-left: 210px;
-            }
-        }
-
-        @media (max-width: 600px) {
-
-            .sidebar {
-                width: 65px;
-                padding: 20px 8px;
-            }
-
-            .logo h2,
-            .logo p {
-                display: none;
-            }
-
-            .logo img {
-                width: 42px;
-                height: 42px;
-            }
-
-            .menu a {
-                text-align: center;
-                padding: 12px 5px;
-                font-size: 18px;
-            }
-
-            .main {
-                margin-left: 65px;
-                padding: 20px;
-            }
-
-            .topbar h1 {
-                font-size: 23px;
-            }
-
-            .topbar p {
-                font-size: 13px;
-            }
-
-            .admin-name {
-                font-size: 13px;
-                padding: 8px 10px;
-            }
-
-            .content-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-            }
-        }
-
-    </style>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5b1018">
+<title>Data Users - RM. Tambaksari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --maroon: #5b1018;
+    --maroon-2: #8d2630;
+    --ink: #2a0a0e;
+    --bg: #f3f1f1;
+    --card: #fff;
+    --line: #ebe7e7;
+    --muted: #70686a;
+    --gold: #f2c46d;
+    --tint: #f7e7e9;
+    --red: #b3262f;  --red-bg: #fde3e5;
+    --side: 250px;
+    --tab-h: 66px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    background: var(--bg); color: #1d1a1b; line-height: 1.45;
+}
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 3px solid #e7a3aa; outline-offset: 2px; }
+
+.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.i.lg { width: 22px; height: 22px; }
+.i.sm { width: 16px; height: 16px; }
+
+/* ========== SIDEBAR ========== */
+.side {
+    position: fixed; inset: 0 auto 0 0; width: var(--side);
+    background: var(--maroon); color: #fff; padding: 24px 14px;
+    display: flex; flex-direction: column; overflow-y: auto; z-index: 50;
+}
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 20px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.15); }
+.brand img { width: 42px; height: 42px; object-fit: contain; background: rgba(255,255,255,.09); border-radius: 10px; padding: 4px; }
+.brand b { display: block; font-size: 15px; }
+.brand span { font-size: 12px; color: #e9cfd2; }
+.side ul { list-style: none; display: grid; gap: 4px; }
+.side a { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 12px; font-size: 14.5px; font-weight: 500; color: #f6e6e8; }
+.side a:hover { background: rgba(255,255,255,.1); }
+.side a.on { background: #fff; color: var(--maroon); font-weight: 700; }
+.side .gap { flex: 1; }
+.side .out { color: #ffc9ce; font-weight: 600; }
+
+/* ========== HEADER ========== */
+.main { margin-left: var(--side); padding: 28px 32px 40px; max-width: 1240px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.top h1 { font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -.3px; }
+.top p { color: var(--muted); font-size: 13.5px; }
+
+.profile { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); padding: 6px 16px 6px 6px; border-radius: 999px; min-width: 0; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; background: var(--maroon); color: var(--gold); display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+.profile .n { min-width: 0; }
+.profile b { display: block; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.profile small { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--maroon-2); font-weight: 700; }
+.profile small .i { width: 12px; height: 12px; stroke-width: 2.2; }
+
+/* ========== PANEL ========== */
+.panel { background: var(--card); border-radius: 20px; padding: 20px; border: 1px solid var(--line); }
+.ph { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+.ph h2 { font-size: 18px; font-weight: 800; color: var(--ink); }
+.ph .count { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+
+.btn-add {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--maroon); color: #fff;
+    padding: 11px 16px; border-radius: 12px;
+    font-size: 13.5px; font-weight: 700; white-space: nowrap;
+}
+.btn-add:hover { background: var(--maroon-2); }
+
+/* ========== TABEL (desktop) ========== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); }
+td { padding: 14px 12px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #fcf8f8; }
+th.c, td.c { text-align: center; }
+.who { display: flex; align-items: center; gap: 12px; }
+
+.ava { width: 40px; height: 40px; border-radius: 12px; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 15px; }
+.ava.admin   { background: #ead8ff; color: #5a2a8a; }
+.ava.pelayan { background: #dceeff; color: #1961a5; }
+.ava.koki    { background: #fff0d1; color: #9a6100; }
+.ava.lain    { background: var(--tint); color: var(--maroon); }
+
+.role { display: inline-block; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.role.admin   { background: #ead8ff; color: #5a2a8a; }
+.role.pelayan { background: #dceeff; color: #1961a5; }
+.role.koki    { background: #fff0d1; color: #9a6100; }
+.role.lain    { background: var(--tint); color: var(--maroon); }
+
+.act { display: inline-flex; gap: 8px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; border: 0; cursor: pointer; font-family: inherit; }
+.btn.edit  { background: #e3e9ff; color: #2f4fb3; }
+.btn.edit:hover  { background: #d0daff; }
+.btn.hapus { background: var(--red-bg); color: var(--red); }
+.btn.hapus:hover { background: #f9cdd1; }
+
+.empty { text-align: center; color: var(--muted); padding: 28px 10px; font-size: 14px; }
+
+/* kartu (hp) disembunyikan di desktop */
+.cards { display: none; }
+.tabbar, .sheet, .scrim { display: none; }
+
+/* ========== HP ========== */
+@media (max-width: 800px) {
+    .side { display: none; }
+    .main { margin-left: 0; padding: calc(16px + env(safe-area-inset-top, 0px)) 14px calc(var(--tab-h) + 28px + env(safe-area-inset-bottom, 0px)); }
+    .top { align-items: flex-start; }
+    .top > div:first-child { min-width: 0; }
+    .top h1 { font-size: 20px; }
+    .top p { font-size: 12.5px; line-height: 1.35; margin-top: 2px; }
+    .profile b { max-width: 100px; }
+
+    .panel { padding: 16px 14px; border-radius: 18px; }
+    .ph h2 { font-size: 16px; }
+    .btn-add { padding: 10px 14px; }
+
+    .table-wrap { display: none; }
+    .cards { display: grid; gap: 12px; list-style: none; }
+    .u { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: #fff; }
+    .u .row { display: flex; align-items: center; gap: 12px; }
+    .u .info { flex: 1; min-width: 0; }
+    .u .info b { display: block; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u .info small { display: block; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u .act { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .u .btn { padding: 11px; }
+
+    .tabbar {
+        display: grid; grid-template-columns: repeat(5, 1fr);
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+        height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: #fff; border-top: 1px solid var(--line);
+        box-shadow: 0 -6px 20px rgba(60,10,16,.08);
+    }
+    .tabbar a, .tabbar button {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+        background: none; border: 0; font: inherit; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
+    }
+    .tabbar .pill { display: grid; place-items: center; padding: 4px 16px; border-radius: 12px; }
+    .tabbar .on { color: var(--maroon); }
+    .tabbar .on .pill { background: var(--tint); }
+
+    .scrim { display: block; position: fixed; inset: 0; background: rgba(20,5,8,.5); z-index: 70; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .sheet {
+        display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+        background: #fff; border-radius: 24px 24px 0 0;
+        padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+        transform: translateY(100%); transition: transform .26s ease;
+    }
+    .sheet .grab { width: 40px; height: 4px; background: #d9d2d3; border-radius: 4px; margin: 0 auto 10px; }
+    .sheet a { display: flex; align-items: center; gap: 14px; padding: 15px 8px; font-size: 15px; font-weight: 600; border-bottom: 1px solid var(--line); }
+    .sheet a:last-child { border-bottom: 0; color: var(--red); }
+    .sheet a .i { color: var(--maroon); }
+    .sheet a:last-child .i { color: var(--red); }
+    .sheet a.on { color: var(--maroon); background: var(--tint); border-radius: 12px; border-bottom-color: transparent; }
+    body.open .scrim { opacity: 1; pointer-events: auto; }
+    body.open .sheet { transform: translateY(0); }
+    body.open { overflow: hidden; }
+}
+
+@media (max-width: 360px) { .profile b { max-width: 70px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
 </head>
 
 <body>
 
-<!-- =========================
-     SIDEBAR
-========================= -->
+<!-- SPRITE IKON -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3Zm0 0v7"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="3.5" rx="1.2"/><path d="M5 8.5V19"/><path d="M19 8.5V19"/><path d="M9 8.5V14"/><path d="M15 8.5V14"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-4"/><path d="M13 16V8"/><path d="M18 16v-7"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+</svg>
 
-<aside class="sidebar">
-
-    <div class="logo">
-
+<!-- SIDEBAR DESKTOP -->
+<aside class="side" aria-label="Menu utama">
+    <div class="brand">
         <img src="../../assets/images/logo.png" alt="Logo RM Tambaksari">
-
-        <h2>RM. TAMBAKSARI</h2>
-
-        <p>Onggorawe Demak</p>
-
+        <div><b>RM. TAMBAKSARI</b><span>Onggorawe Demak</span></div>
     </div>
-
-    <ul class="menu">
-
-        <li>
-            <a href="../dashboard.php">
-                🏠 &nbsp; Dashboard
-            </a>
-        </li>
-
-        <li>
-            <a href="index.php" class="active">
-                👤 &nbsp; User
-            </a>
-        </li>
-
-        <li>
-            <a href="../menu/index.php">
-                🍽️ &nbsp; Menu
-            </a>
-        </li>
-
-        <li>
-            <a href="../kategori/index.php">
-                📋 &nbsp; Kategori
-            </a>
-        </li>
-
-        <li>
-            <a href="../meja/index.php">
-                🪑 &nbsp; Meja
-            </a>
-        </li>
-
-        <li>
-            <a href="../laporan/index.php">
-                📊 &nbsp; Laporan
-            </a>
-        </li>
-
-        <li>
-            <a href="../../logout.php" class="logout">
-                🚪 &nbsp; Logout
-            </a>
-        </li>
-
+    <ul>
+        <li><a href="../dashboard.php"><?= ico('home'); ?> Dashboard</a></li>
+        <li><a href="index.php" class="on"><?= ico('user'); ?> User</a></li>
+        <li><a href="../menu/index.php"><?= ico('menu'); ?> Menu</a></li>
+        <li><a href="../kategori/index.php"><?= ico('grid'); ?> Kategori</a></li>
+        <li><a href="../meja/index.php"><?= ico('table'); ?> Meja</a></li>
+        <li><a href="../laporan/index.php"><?= ico('chart'); ?> Laporan</a></li>
     </ul>
-
+    <div class="gap"></div>
+    <a href="../../logout.php" class="out"><?= ico('logout'); ?> Logout</a>
 </aside>
-
-<!-- =========================
-     MAIN
-========================= -->
 
 <main class="main">
 
-    <div class="topbar">
-
+    <header class="top">
         <div>
-
             <h1>Data User</h1>
-
             <p>Kelola data pengguna RM. Tambaksari</p>
+        </div>
+        <div class="profile">
+            <div class="avatar" aria-hidden="true"><?= $inisial_adm; ?></div>
+            <div class="n">
+                <b><?= $nama_admin; ?></b>
+                <small><?= ico('shield'); ?> Administrator</small>
+            </div>
+        </div>
+    </header>
 
+    <section class="panel">
+        <div class="ph">
+            <h2>Data Users<span class="count"><?= $total_user; ?> pengguna terdaftar</span></h2>
+            <a href="tambah.php" class="btn-add"><?= ico('plus', 'i sm'); ?> Tambah User</a>
         </div>
 
-        <div class="admin-name">
+        <?php if ($total_user > 0): ?>
 
-            👤
-            <?php
-            echo htmlspecialchars(
-                $_SESSION['username'] ?? 'admin'
-            );
-            ?>
-
-        </div>
-
-    </div>
-
-    <!-- =========================
-         DATA USER
-    ========================= -->
-
-    <div class="content-box">
-
-        <div class="content-header">
-
-            <h2>Data Users</h2>
-
-            <a href="tambah.php" class="btn-tambah">
-                + Tambah User
-            </a>
-
-        </div>
-
-        <div class="table-container">
-
+        <!-- Tabel (desktop) -->
+        <div class="table-wrap">
             <table>
-
-                <tr>
-                    <th>No</th>
-                    <th>Username</th>
-                    <th>Nama</th>
-                    <th>Role</th>
-                    <th>Aksi</th>
-                </tr>
-
-                <?php
-
-                if (mysqli_num_rows($ambildata) > 0) {
-
-                    while ($tampildata = mysqli_fetch_assoc($ambildata)) {
-
+                <thead>
+                    <tr>
+                        <th class="c" style="width:70px">No</th>
+                        <th>Username</th>
+                        <th>Nama</th>
+                        <th>Role</th>
+                        <th class="c" style="width:200px">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($users as $n => $u):
+                    $role = in_array($u['role'], $role_valid, true) ? $u['role'] : 'lain';
+                    $nama = htmlspecialchars($u['nama']);
+                    $uname = htmlspecialchars($u['username']);
+                    $id = (int)$u['id_user'];
                 ?>
-
-                <tr>
-
-                    <td>
-                        <?php echo $no++; ?>
-                    </td>
-
-                    <td>
-                        <?php
-                        echo htmlspecialchars(
-                            $tampildata['username']
-                        );
-                        ?>
-                    </td>
-
-                    <td>
-                        <?php
-                        echo htmlspecialchars(
-                            $tampildata['nama']
-                        );
-                        ?>
-                    </td>
-
-                    <td>
-
-                        <span class="role <?php echo $tampildata['role']; ?>">
-
-                            <?php
-                            echo ucfirst(
-                                $tampildata['role']
-                            );
-                            ?>
-
-                        </span>
-
-                    </td>
-
-                    <td>
-
-                        <a
-                            href="edit.php?id_user=<?php echo $tampildata['id_user']; ?>"
-                            class="btn-edit"
-                        >
-                            Edit
-                        </a>
-
-                        <a
-                            href="hapus.php?id_user=<?php echo $tampildata['id_user']; ?>"
-                            class="btn-hapus"
-                            onclick="return confirm('Yakin ingin menghapus user ini?');"
-                        >
-                            Hapus
-                        </a>
-
-                    </td>
-
-                </tr>
-
-                <?php
-
-                    }
-
-                } else {
-
-                ?>
-
-                <tr>
-
-                    <td colspan="5" class="kosong">
-                        Belum ada data user.
-                    </td>
-
-                </tr>
-
-                <?php
-                }
-                ?>
-
+                    <tr>
+                        <td class="c"><?= $n + 1; ?></td>
+                        <td>
+                            <div class="who">
+                                <div class="ava <?= $role; ?>"><?= htmlspecialchars(strtoupper(substr($u['nama'] ?: $u['username'], 0, 1))); ?></div>
+                                <?= $uname; ?>
+                            </div>
+                        </td>
+                        <td><?= $nama; ?></td>
+                        <td><span class="role <?= $role; ?>"><?= htmlspecialchars(ucfirst($u['role'])); ?></span></td>
+                        <td class="c">
+                            <div class="act">
+                                <a href="edit.php?id_user=<?= $id; ?>" class="btn edit"><?= ico('edit', 'i sm'); ?> Edit</a>
+                                <a href="hapus.php?id_user=<?= $id; ?>" class="btn hapus" onclick="return confirm('Yakin ingin menghapus user ini?');"><?= ico('trash', 'i sm'); ?> Hapus</a>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
             </table>
-
         </div>
 
-    </div>
+        <!-- Kartu (HP) -->
+        <ul class="cards">
+            <?php foreach ($users as $u):
+                $role = in_array($u['role'], $role_valid, true) ? $u['role'] : 'lain';
+                $id = (int)$u['id_user'];
+            ?>
+            <li class="u">
+                <div class="row">
+                    <div class="ava <?= $role; ?>"><?= htmlspecialchars(strtoupper(substr($u['nama'] ?: $u['username'], 0, 1))); ?></div>
+                    <div class="info">
+                        <b><?= htmlspecialchars($u['nama']); ?></b>
+                        <small>@<?= htmlspecialchars($u['username']); ?></small>
+                    </div>
+                    <span class="role <?= $role; ?>"><?= htmlspecialchars(ucfirst($u['role'])); ?></span>
+                </div>
+                <div class="act">
+                    <a href="edit.php?id_user=<?= $id; ?>" class="btn edit"><?= ico('edit', 'i sm'); ?> Edit</a>
+                    <a href="hapus.php?id_user=<?= $id; ?>" class="btn hapus" onclick="return confirm('Yakin ingin menghapus user ini?');"><?= ico('trash', 'i sm'); ?> Hapus</a>
+                </div>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+
+        <?php else: ?>
+            <p class="empty">Belum ada data user. Tekan "Tambah User" untuk menambahkan.</p>
+        <?php endif; ?>
+    </section>
 
 </main>
 
-</body>
+<!-- NAVIGASI BAWAH (HP) -->
+<nav class="tabbar" aria-label="Navigasi">
+    <a href="../dashboard.php"><span class="pill"><?= ico('home', 'i lg'); ?></span>Beranda</a>
+    <a href="../menu/index.php"><span class="pill"><?= ico('menu', 'i lg'); ?></span>Menu</a>
+    <a href="../meja/index.php"><span class="pill"><?= ico('table', 'i lg'); ?></span>Meja</a>
+    <a href="../laporan/index.php"><span class="pill"><?= ico('chart', 'i lg'); ?></span>Laporan</a>
+    <button type="button" id="more" class="on" aria-haspopup="true" aria-expanded="false"><span class="pill"><?= ico('more', 'i lg'); ?></span>Lainnya</button>
+</nav>
 
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="menu">
+    <div class="grab"></div>
+    <a href="index.php" class="on" role="menuitem"><?= ico('user', 'i lg'); ?> User</a>
+    <a href="../kategori/index.php" role="menuitem"><?= ico('grid', 'i lg'); ?> Kategori</a>
+    <a href="../../logout.php" role="menuitem"><?= ico('logout', 'i lg'); ?> Logout</a>
+</div>
+
+<script>
+(function () {
+    var b = document.body, btn = document.getElementById('more');
+    function set(o) { b.classList.toggle('open', o); btn.setAttribute('aria-expanded', o ? 'true' : 'false'); }
+    btn.addEventListener('click', function () { set(!b.classList.contains('open')); });
+    document.getElementById('scrim').addEventListener('click', function () { set(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
+})();
+</script>
+
+</body>
 </html>
