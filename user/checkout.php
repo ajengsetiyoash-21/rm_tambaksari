@@ -2,9 +2,6 @@
 session_start();
 include "../config.php";
 
-// =========================
-// CEK KERANJANG KOSONG
-// =========================
 if (empty($_SESSION['keranjang'])) {
     header('Location: keranjang.php');
     exit;
@@ -13,9 +10,6 @@ if (empty($_SESSION['keranjang'])) {
 $id_meja = $_SESSION['id_meja'] ?? 1;
 $id_user = $_SESSION['id_user'] ?? null;
 
-// =========================
-// AMBIL DATA MENU DARI KERANJANG
-// =========================
 $items = [];
 $total = 0;
 $total_qty = 0;
@@ -44,11 +38,6 @@ $tax = round($total * 0.10);
 $service = $total > 0 ? 2000 : 0;
 $grand_total = $total + $tax + $service;
 
-// =========================
-// PROSES CHECKOUT (POST)
-// Data selalu dihitung ulang dari session, jadi
-// perubahan qty lewat tombol +/- ikut terbawa.
-// =========================
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -150,7 +139,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
 
         .wrap { max-width: 560px; margin: 0 auto; }
 
-        /* ===== HEADER ===== */
         .topbar {
             position: sticky;
             top: 0;
@@ -184,7 +172,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
         .btn-back:active { background: var(--orange-soft); }
         .topbar h1 { font-size: 17px; font-weight: 700; }
 
-        /* ===== CARD ===== */
         .card {
             background: var(--card);
             margin-top: 8px;
@@ -230,7 +217,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
             font-weight: 600;
         }
 
-        /* ===== ITEM ===== */
         .item {
             display: flex;
             gap: 12px;
@@ -284,7 +270,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
 
         .item-price { font-size: 14px; font-weight: 700; }
 
-        /* ===== STEPPER ===== */
         .stepper { display: flex; align-items: center; gap: 12px; }
 
         .step-btn {
@@ -322,7 +307,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
             text-decoration: none;
         }
 
-        /* ===== PAYMENT ===== */
         .pay-list { margin-top: 6px; }
 
         .pay-option { display: block; cursor: pointer; }
@@ -381,7 +365,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
         .pay-option input:checked + .pay-box .pay-ic { background: var(--orange-soft); color: var(--orange); }
         .pay-option input:focus-visible + .pay-box { outline: 2px solid var(--orange); outline-offset: 2px; }
 
-        /* ===== NOTE ===== */
         .form-textarea {
             width: 100%;
             margin-top: 8px;
@@ -399,7 +382,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
         .form-textarea:focus { border-color: var(--orange); background: #fff; }
         .form-textarea::placeholder { color: #b5b5b5; }
 
-        /* ===== COST ===== */
         .cost-row {
             display: flex;
             justify-content: space-between;
@@ -419,7 +401,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
 
         .cost-row.total span:last-child { color: var(--orange); }
 
-        /* ===== BOTTOM BAR ===== */
         .bar {
             position: fixed;
             left: 0;
@@ -460,8 +441,71 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
         .btn-primary:active { background: var(--orange-dark); }
         .btn-primary:disabled { opacity: 0.7; }
 
-        @media (prefers-reduced-motion: reduce) {
-            * { transition: none !important; }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: #fff;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 360px;
+            padding: 22px 20px;
+            text-align: center;
+        }
+        .modal-box h3 {
+            font-size: 16px;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+        .modal-box .qr-total {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--orange);
+            margin: 8px 0 4px;
+        }
+        .modal-box .qr-sub {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+        .qr-wrap {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 14px;
+            display: inline-block;
+            margin-bottom: 14px;
+        }
+        .qr-wrap img { width: 240px; height: 240px; display: block; }
+        .qr-loading {
+            width: 240px; height: 240px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--muted); font-size: 13px;
+        }
+        .modal-actions { display: flex; gap: 8px; }
+        .btn-cancel, .btn-confirm {
+            flex: 1; padding: 12px; border-radius: 10px;
+            font-size: 13.5px; font-weight: 700; cursor: pointer;
+            border: none; font-family: inherit;
+        }
+        .btn-cancel { background: #f2f2f2; color: #555; }
+        .btn-confirm { background: var(--orange); color: #fff; }
+        .btn-confirm:active { background: var(--orange-dark); }
+        .qr-badge {
+            display: inline-block;
+            background: #fff1ed; color: var(--orange);
+            font-size: 11px; font-weight: 700;
+            padding: 4px 10px; border-radius: 20px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -469,7 +513,7 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
 
 <header class="topbar">
     <div class="topbar-inner">
-        <a href="keranjang.php" class="btn-back" aria-label="Kembali ke keranjang">
+        <a href="keranjang.php" class="btn-back">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </a>
         <h1>Checkout</h1>
@@ -517,9 +561,9 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
                         <div class="item-row">
                             <div class="item-price">Rp<span class="js-sub"><?= number_format($it['subtotal'], 0, ',', '.'); ?></span></div>
                             <div class="stepper">
-                                <button type="button" class="step-btn step-minus" data-act="kurang" aria-label="Kurangi">−</button>
+                                <button type="button" class="step-btn step-minus" data-act="kurang">−</button>
                                 <span class="step-qty"><?= $it['qty']; ?></span>
-                                <button type="button" class="step-btn step-plus" data-act="tambah" aria-label="Tambah">+</button>
+                                <button type="button" class="step-btn step-plus" data-act="tambah">+</button>
                             </div>
                         </div>
                     </div>
@@ -575,16 +619,34 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
     </form>
 </div>
 
+<!-- MODAL QRIS -->
+<div class="modal-overlay" id="modalQris">
+    <div class="modal-box">
+        <span class="qr-badge">QRIS</span>
+        <h3>Scan untuk Bayar</h3>
+        <div class="qr-sub">Total yang harus dibayar</div>
+        <div class="qr-total" id="qrTotal">Rp 0</div>
+        <div class="qr-wrap" id="qrWrap">
+            <div class="qr-loading">Memuat QR Code...</div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn-cancel" onclick="tutupModalQris()">Batal</button>
+            <button type="button" class="btn-confirm" onclick="konfirmasiQRIS()">Saya sudah bayar</button>
+        </div>
+    </div>
+</div>
+
 <div class="bar">
     <div class="bar-inner">
         <div class="bar-total">
             <small>Total bayar</small>
             <strong>Rp<span id="barTotal"><?= number_format($grand_total, 0, ',', '.'); ?></span></strong>
         </div>
-        <button type="submit" form="checkoutForm" class="btn-primary" id="btnSubmit">Buat pesanan</button>
+        <button type="button" class="btn-primary" id="btnSubmit">Buat pesanan</button>
     </div>
 </div>
 
+<!-- script utama -->
 <script>
     const rupiah = n => n.toLocaleString('id-ID');
     const $ = id => document.getElementById(id);
@@ -604,7 +666,6 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
             qty += +el.dataset.qty;
         });
 
-        // Semua item dihapus → kembali ke keranjang
         if (qty === 0) {
             window.location = 'keranjang.php';
             return;
@@ -648,13 +709,10 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
         row.querySelector('.js-sub').textContent = rupiah(qty * (+row.dataset.harga));
         recalc();
     });
-
-    $('checkoutForm').addEventListener('submit', function () {
-        const btn = $('btnSubmit');
-        btn.textContent = 'Memproses...';
-        btn.disabled = true;
-    });
 </script>
+
+<!-- script modal qris -->
+<script src="qris.js"></script>
 
 </body>
 </html>
