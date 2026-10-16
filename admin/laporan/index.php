@@ -2,6 +2,12 @@
 session_start();
 include "../../config.php";
 
+// Cek login admin (harus sebelum proses apa pun, termasuk update status lunas)
+if (!isset($_SESSION['status']) || $_SESSION['status'] != "login" || ($_SESSION['role'] ?? '') != "admin") {
+    header("Location: ../../login.php");
+    exit;
+}
+
 // =========================
 // HANDLE UPDATE STATUS LUNAS
 // =========================
@@ -34,9 +40,7 @@ if ($tanggal_akhir != '') {
     $where[] = "DATE(p.created_at) <= '$akhir'";
 }
 
-$filter = count($where) > 0
-    ? "WHERE " . implode(" AND ", $where)
-    : "";
+$filter = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";
 
 // =========================
 // QUERY DATA PESANAN
@@ -79,551 +83,456 @@ while ($data = mysqli_fetch_assoc($query)) {
         $count_belum++;
     }
 }
-?>
 
+// Helper
+function ico($id, $cls = 'i') { return '<svg class="' . $cls . '" aria-hidden="true"><use href="#i-' . $id . '"/></svg>'; }
+function rp($n) { return 'Rp ' . number_format((float)$n, 0, ',', '.'); }
+function tgl($t) { return $t ? date('d-m-Y H:i', strtotime($t)) : '-'; }
+
+$ada_filter  = ($tanggal_awal != '' || $tanggal_akhir != '');
+$nama_admin  = htmlspecialchars($_SESSION['username'] ?? 'Admin');
+$inisial_adm = htmlspecialchars(strtoupper(substr($_SESSION['username'] ?? 'A', 0, 1)));
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5b1018">
 <title>Laporan - RM. Tambaksari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: Arial, sans-serif;
+:root {
+    --maroon: #5b1018;
+    --maroon-2: #8d2630;
+    --ink: #2a0a0e;
+    --bg: #f3f1f1;
+    --card: #fff;
+    --line: #ebe7e7;
+    --muted: #70686a;
+    --gold: #f2c46d;
+    --tint: #f7e7e9;
+    --green: #0f7a4f;  --green-bg: #dcf5e8;
+    --amber: #96590a;  --amber-bg: #fdeccb;
+    --red: #b3262f;    --red-bg: #fde3e5;
+    --side: 250px;
+    --tab-h: 66px;
 }
-
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body {
-    background: #f5f1ed;
-    color: #333;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    background: var(--bg); color: #1d1a1b; line-height: 1.45;
 }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 3px solid #e7a3aa; outline-offset: 2px; }
 
-/* SIDEBAR */
-.sidebar {
-    width: 240px;
-    height: 100vh;
-    background: #5b1018;
-    color: white;
-    position: fixed;
-    top: 0;
-    left: 0;
-    padding: 25px 15px;
-    overflow-y: auto;
+.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.i.lg { width: 22px; height: 22px; }
+.i.sm { width: 16px; height: 16px; }
+
+/* ========== SIDEBAR ========== */
+.side {
+    position: fixed; inset: 0 auto 0 0; width: var(--side);
+    background: var(--maroon); color: #fff; padding: 24px 14px;
+    display: flex; flex-direction: column; overflow-y: auto; z-index: 50;
 }
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 20px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.15); }
+.brand img { width: 42px; height: 42px; object-fit: contain; background: rgba(255,255,255,.09); border-radius: 10px; padding: 4px; }
+.brand b { display: block; font-size: 15px; }
+.brand span { font-size: 12px; color: #e9cfd2; }
+.side ul { list-style: none; display: grid; gap: 4px; }
+.side a { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 12px; font-size: 14.5px; font-weight: 500; color: #f6e6e8; }
+.side a:hover { background: rgba(255,255,255,.1); }
+.side a.on { background: #fff; color: var(--maroon); font-weight: 700; }
+.side .gap { flex: 1; }
+.side .out { color: #ffc9ce; font-weight: 600; }
 
-.logo {
-    text-align: center;
-    margin-bottom: 35px;
+/* ========== HEADER ========== */
+.main { margin-left: var(--side); padding: 28px 32px 40px; max-width: 1240px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.top h1 { font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -.3px; }
+.top p { color: var(--muted); font-size: 13.5px; }
+
+.profile { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); padding: 6px 16px 6px 6px; border-radius: 999px; min-width: 0; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; background: var(--maroon); color: var(--gold); display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+.profile .n { min-width: 0; }
+.profile b { display: block; font-size: 14px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.profile small { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--maroon-2); font-weight: 700; }
+.profile small .i { width: 12px; height: 12px; stroke-width: 2.2; }
+
+/* ========== RINGKASAN ========== */
+.sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+.s { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; }
+.s small { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.s b { display: block; font-size: 23px; font-weight: 800; color: var(--ink); margin: 4px 0 2px; letter-spacing: -.3px; }
+.s em { font-style: normal; font-size: 12px; color: var(--muted); }
+.s.g small, .s.g b { color: var(--green); }
+.s.a small, .s.a b { color: var(--amber); }
+
+/* ========== PANEL ========== */
+.panel { background: var(--card); border-radius: 20px; padding: 20px; border: 1px solid var(--line); margin-bottom: 16px; }
+.ph { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.ph h2 { font-size: 17px; font-weight: 800; color: var(--ink); }
+.ph .count { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+
+/* Tombol */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 16px; border-radius: 12px; font-size: 13.5px; font-weight: 700; border: 0; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.btn.p { background: var(--maroon); color: #fff; }
+.btn.p:hover { background: var(--maroon-2); }
+.btn.g { background: #f1eded; color: var(--ink); }
+.btn.g:hover { background: #e8e1e2; }
+
+/* Filter */
+.filter { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.field input {
+    padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px;
+    font-family: inherit; font-size: 14px; color: var(--ink); background: #fff; min-height: 44px;
 }
+.field input:focus { outline: 3px solid #e7a3aa; outline-offset: 0; border-color: var(--maroon-2); }
+.filter .acts { display: flex; gap: 8px; }
 
-.logo img {
-    width: 50px;
-    height: 50px;
-    object-fit: contain;
-    margin-bottom: 6px;
-}
+/* ========== TABEL (desktop) ========== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 12.5px; font-weight: 700; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 14px 12px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #fcf8f8; }
+th.c, td.c { text-align: center; }
+.idp { font-weight: 800; color: var(--ink); }
+.tot { font-weight: 800; color: var(--maroon); white-space: nowrap; }
 
-.logo h2 {
-    font-size: 18px;
-    color: white;
-}
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; border: 0; font-family: inherit; }
+.badge.lunas { background: var(--green-bg); color: var(--green); }
+.badge.belum { background: var(--amber-bg); color: var(--amber); }
+button.badge.belum { cursor: pointer; }
+button.badge.belum:hover { background: #fbdb9a; }
+.metode { display: inline-block; background: #f1eded; color: var(--ink); padding: 5px 11px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+.dash { color: #aaa; }
 
-.logo p {
-    font-size: 12px;
-    color: #eadada;
-    margin-top: 5px;
-}
+.empty { text-align: center; color: var(--muted); padding: 28px 10px; font-size: 14px; }
 
-.menu {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
+.cards { display: none; }
+.tabbar, .sheet, .scrim { display: none; }
 
-.menu li {
-    margin-bottom: 8px;
-}
-
-.menu a {
-    display: block;
-    padding: 13px 15px;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-size: 14px;
-}
-
-.menu a:hover {
-    background: #8d2630;
-}
-
-.menu a.active {
-    background: #922733;
-}
-
-.menu .logout {
-    margin-top: 25px;
-}
-
-/* KONTEN */
-.content {
-    margin-left: 240px;
-    padding: 30px;
-}
-
-.topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-}
-
-.topbar h1 {
-    color: #5b1018;
-    font-size: 28px;
-    margin-bottom: 5px;
-}
-
-.topbar p {
-    color: #555;
-    font-size: 15px;
-}
-
-.admin-name {
-    background: white;
-    padding: 10px 15px;
-    border-radius: 10px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-    font-size: 15px;
-}
-
-/* TOMBOL */
-.btn {
-    border: none;
-    border-radius: 8px;
-    padding: 11px 16px;
-    font-size: 13px;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
-    font-family: inherit;
-}
-
-.btn-maroon {
-    background: #5b1018;
-    color: white;
-}
-
-.btn-maroon:hover {
-    background: #7d2029;
-}
-
-.btn-gray {
-    background: #777;
-    color: white;
-}
-
-.btn-gray:hover {
-    background: #555;
-}
-
-/* KARTU RINGKASAN */
-.ringkasan {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
-    margin-bottom: 25px;
-}
-
-.kartu {
-    background: white;
-    padding: 22px;
-    border-radius: 12px;
-    box-shadow: 0 3px 12px rgba(0,0,0,.06);
-    border-left: 4px solid #5b1018;
-}
-
-.kartu.lunas { border-left-color: #10b981; }
-.kartu.belum { border-left-color: #f59e0b; }
-
-.kartu p {
-    margin: 0 0 10px;
-    color: #777;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-}
-
-.kartu h2 {
-    margin: 0;
-    color: #5b1018;
-    font-size: 23px;
-    font-weight: 800;
-}
-
-.kartu.lunas h2 { color: #065f46; }
-.kartu.belum h2 { color: #92400e; }
-
-.kartu small {
-    display: block;
-    margin-top: 6px;
-    font-size: 11px;
-    color: #888;
-    font-weight: 500;
-}
-
-/* FILTER */
-.filter-box,
-.table-box {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 22px;
-    box-shadow: 0 3px 12px rgba(0,0,0,.06);
-}
-
-.filter-box h3,
-.table-box h3 {
-    color: #5b1018;
-    margin: 0 0 18px;
-    font-size: 17px;
-}
-
-.filter-form {
-    display: flex;
-    align-items: end;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-}
-
-.form-group label {
-    font-size: 13px;
-    font-weight: bold;
-}
-
-.form-group input {
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 7px;
-    font-family: inherit;
-}
-
-/* TABEL */
-.table-box {
-    overflow-x: auto;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 900px;
-}
-
-th {
-    background: #5b1018;
-    color: white;
-    padding: 14px 12px;
-    text-align: center;
-    font-size: 12.5px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-}
-
-td {
-    padding: 14px 12px;
-    border-bottom: 1px solid #eee;
-    text-align: center;
-    font-size: 13px;
-    vertical-align: middle;
-}
-
-tr:hover td {
-    background: #faf7f5;
-}
-
-/* BADGE */
-.badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    border: none;
-    font-family: inherit;
-}
-
-.badge-lunas {
-    background: linear-gradient(135deg, #d1fae5, #6ee7b7);
-    color: #065f46;
-}
-
-.badge-belum {
-    background: linear-gradient(135deg, #fef3c7, #fde68a);
-    color: #92400e;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.badge-belum:hover {
-    background: linear-gradient(135deg, #fde68a, #fbbf24);
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-}
-
-.badge-metode {
-    background: #f3f0ea;
-    color: #5b1018;
-    border: 1px solid #e0d8c9;
-    padding: 5px 11px;
-    font-size: 11px;
-    font-weight: 700;
-}
-
-.kosong {
-    padding: 40px 25px;
-    text-align: center;
-    color: #999;
-    font-size: 14px;
-}
-
-/* CETAK */
-@media print {
-    .sidebar,
-    .filter-box,
-    .btn-cetak,
-    .admin-name,
-    .no-print {
-        display: none !important;
-    }
-
-    .content {
-        margin: 0;
-        padding: 10px;
-    }
-
-    body {
-        background: white;
-    }
-
-    .kartu,
-    .table-box {
-        box-shadow: none;
-        border: 1px solid #ddd;
-    }
-
-    .badge-belum {
-        cursor: default;
-        background: #fff3cd !important;
-        color: #856404 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-
-    .badge-lunas {
-        background: #d1fae5 !important;
-        color: #065f46 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-}
-
+/* ========== HP ========== */
 @media (max-width: 800px) {
-    .sidebar {
-        width: 190px;
-    }
+    .side { display: none; }
+    .main { margin-left: 0; padding: calc(16px + env(safe-area-inset-top, 0px)) 14px calc(var(--tab-h) + 28px + env(safe-area-inset-bottom, 0px)); }
+    .top { align-items: flex-start; }
+    .top > div:first-child { min-width: 0; }
+    .top h1 { font-size: 20px; }
+    .top p { font-size: 12.5px; line-height: 1.35; margin-top: 2px; }
+    .profile b { max-width: 100px; }
 
-    .content {
-        margin-left: 190px;
-        padding: 18px;
-    }
+    .sum { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .s { padding: 14px; border-radius: 16px; }
+    .s b { font-size: 18px; }
+    .s.all { grid-column: 1 / -1; background: linear-gradient(140deg, var(--maroon), var(--maroon-2)); border: 0; }
+    .s.all small, .s.all em { color: #f1d4d7; }
+    .s.all b { color: #fff; font-size: 26px; }
 
-    .ringkasan {
-        grid-template-columns: 1fr;
+    .panel { padding: 16px 14px; border-radius: 18px; }
+    .ph h2 { font-size: 16px; }
+
+    .filter { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .filter .acts { grid-column: 1 / -1; }
+    .filter .acts .btn { flex: 1; }
+    .field input { width: 100%; }
+
+    .table-wrap { display: none; }
+    .cards { display: grid; gap: 12px; list-style: none; }
+    .o { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: #fff; }
+    .o .row1 { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .o .row1 b { display: block; font-size: 16px; font-weight: 800; color: var(--ink); }
+    .o .row1 small { color: var(--muted); font-size: 12.5px; }
+    .o .row2 { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .o .tot { font-size: 18px; }
+    .o form { margin-top: 12px; }
+    .o form .btn { width: 100%; padding: 12px; background: var(--green-bg); color: var(--green); }
+
+    .tabbar {
+        display: grid; grid-template-columns: repeat(5, 1fr);
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+        height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: #fff; border-top: 1px solid var(--line);
+        box-shadow: 0 -6px 20px rgba(60,10,16,.08);
     }
+    .tabbar a, .tabbar button {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+        background: none; border: 0; font: inherit; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
+    }
+    .tabbar .pill { display: grid; place-items: center; padding: 4px 16px; border-radius: 12px; }
+    .tabbar .on { color: var(--maroon); }
+    .tabbar .on .pill { background: var(--tint); }
+
+    .scrim { display: block; position: fixed; inset: 0; background: rgba(20,5,8,.5); z-index: 70; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .sheet {
+        display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
+        background: #fff; border-radius: 24px 24px 0 0;
+        padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+        transform: translateY(100%); transition: transform .26s ease;
+    }
+    .sheet .grab { width: 40px; height: 4px; background: #d9d2d3; border-radius: 4px; margin: 0 auto 10px; }
+    .sheet a { display: flex; align-items: center; gap: 14px; padding: 15px 8px; font-size: 15px; font-weight: 600; border-bottom: 1px solid var(--line); }
+    .sheet a:last-child { border-bottom: 0; color: var(--red); }
+    .sheet a .i { color: var(--maroon); }
+    .sheet a:last-child .i { color: var(--red); }
+    body.open .scrim { opacity: 1; pointer-events: auto; }
+    body.open .sheet { transform: translateY(0); }
+    body.open { overflow: hidden; }
+}
+
+@media (max-width: 360px) { .profile b { max-width: 70px; } .sum { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ========== CETAK ========== */
+@media print {
+    .side, .tabbar, .sheet, .scrim, .profile, .filter-panel, .no-print { display: none !important; }
+    body { background: #fff; }
+    .main { margin: 0; padding: 8px; max-width: none; }
+    .top { margin-bottom: 12px; }
+    .panel, .s { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+    .sum { grid-template-columns: repeat(3, 1fr) !important; }
+    .s.all { background: #fff !important; }
+    .s.all small, .s.all em { color: var(--muted) !important; }
+    .s.all b { color: var(--ink) !important; font-size: 18px !important; }
+    .table-wrap { display: block !important; overflow: visible; }
+    .cards { display: none !important; }
+    th, td { padding: 8px; font-size: 12px; }
+    .badge, .metode { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    button.badge.belum { cursor: default; }
 }
 </style>
 </head>
 
 <body>
 
-<!-- SIDEBAR -->
-<aside class="sidebar">
-    <div class="logo">
-        <img src="../../assets/images/logo.png" alt="Logo RM Tambaksari">
-        <h2>RM. TAMBAKSARI</h2>
-        <p>Onggorawe Demak</p>
-    </div>
+<!-- SPRITE IKON -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 2v7a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3Zm0 0v7"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="3.5" rx="1.2"/><path d="M5 8.5V19"/><path d="M19 8.5V19"/><path d="M9 8.5V14"/><path d="M15 8.5V14"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 16v-4"/><path d="M13 16V8"/><path d="M18 16v-7"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2Z"/><path d="M9 8h6"/><path d="M9 12h6"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2Z"/><circle cx="16.5" cy="14.5" r="1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><rect x="7" y="14" width="10" height="7" rx="1"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8Z"/></symbol>
+</svg>
 
-    <ul class="menu">
-        <li><a href="../dashboard.php">🏠 &nbsp; Dashboard</a></li>
-        <li><a href="../users/index.php">👤 &nbsp; User</a></li>
-        <li><a href="../menu/index.php">🍽️ &nbsp; Menu</a></li>
-        <li><a href="../kategori/index.php">📋 &nbsp; Kategori</a></li>
-        <li><a href="../meja/index.php">🪑 &nbsp; Meja</a></li>
-        <li><a href="index.php" class="active">📊 &nbsp; Laporan</a></li>
-        <li><a href="../../logout.php" class="logout">🚪 &nbsp; Logout</a></li>
+<!-- SIDEBAR DESKTOP -->
+<aside class="side" aria-label="Menu utama">
+    <div class="brand">
+        <img src="../../assets/images/logo.png" alt="Logo RM Tambaksari">
+        <div><b>RM. TAMBAKSARI</b><span>Onggorawe Demak</span></div>
+    </div>
+    <ul>
+        <li><a href="../dashboard.php"><?= ico('home'); ?> Dashboard</a></li>
+        <li><a href="../users/index.php"><?= ico('user'); ?> User</a></li>
+        <li><a href="../menu/index.php"><?= ico('menu'); ?> Menu</a></li>
+        <li><a href="../kategori/index.php"><?= ico('grid'); ?> Kategori</a></li>
+        <li><a href="../meja/index.php"><?= ico('table'); ?> Meja</a></li>
+        <li><a href="index.php" class="on"><?= ico('chart'); ?> Laporan</a></li>
     </ul>
+    <div class="gap"></div>
+    <a href="../../logout.php" class="out"><?= ico('logout'); ?> Logout</a>
 </aside>
 
-<!-- KONTEN -->
-<div class="content">
+<main class="main">
 
-    <!-- HEADER -->
-    <div class="topbar">
+    <header class="top">
         <div>
             <h1>Laporan Pesanan</h1>
             <p>Lihat laporan transaksi RM. Tambaksari</p>
         </div>
-
-        <div class="admin-name">
-            👤 <?= htmlspecialchars($_SESSION['username'] ?? 'admin'); ?>
+        <div class="profile">
+            <div class="avatar" aria-hidden="true"><?= $inisial_adm; ?></div>
+            <div class="n">
+                <b><?= $nama_admin; ?></b>
+                <small><?= ico('shield'); ?> Administrator</small>
+            </div>
         </div>
-    </div>
-
-    <!-- TOMBOL CETAK -->
-    <div style="margin-bottom: 20px;">
-        <button onclick="window.print()" class="btn btn-maroon btn-cetak">
-            🖨️ Cetak Laporan
-        </button>
-    </div>
+    </header>
 
     <!-- RINGKASAN -->
-    <div class="ringkasan">
-        <div class="kartu">
-            <p>TOTAL TRANSAKSI</p>
-            <h2><?= number_format($total_transaksi, 0, ',', '.'); ?></h2>
-            <small>Semua pesanan</small>
+    <section class="sum">
+        <div class="s all">
+            <small><?= ico('receipt', 'i sm'); ?> Total transaksi</small>
+            <b><?= number_format($total_transaksi, 0, ',', '.'); ?></b>
+            <em><?= $ada_filter ? 'Sesuai filter tanggal' : 'Semua pesanan'; ?></em>
         </div>
-
-        <div class="kartu lunas">
-            <p>SUDAH DIBAYAR</p>
-            <h2>Rp <?= number_format($total_pendapatan, 0, ',', '.'); ?></h2>
-            <small><?= $count_lunas; ?> pesanan lunas</small>
+        <div class="s g">
+            <small><?= ico('wallet', 'i sm'); ?> Sudah dibayar</small>
+            <b><?= rp($total_pendapatan); ?></b>
+            <em><?= $count_lunas; ?> pesanan lunas</em>
         </div>
-
-        <div class="kartu belum">
-            <p>BELUM DIBAYAR</p>
-            <h2>Rp <?= number_format($total_belum_bayar, 0, ',', '.'); ?></h2>
-            <small><?= $count_belum; ?> pesanan menunggu</small>
+        <div class="s a">
+            <small><?= ico('clock', 'i sm'); ?> Belum dibayar</small>
+            <b><?= rp($total_belum_bayar); ?></b>
+            <em><?= $count_belum; ?> pesanan menunggu</em>
         </div>
-    </div>
+    </section>
 
     <!-- FILTER -->
-    <div class="filter-box">
-        <h3>Filter Tanggal</h3>
-
-        <form method="GET" class="filter-form">
-            <div class="form-group">
-                <label for="tanggal_awal">Dari Tanggal</label>
-                <input type="date" name="tanggal_awal" id="tanggal_awal"
-                       value="<?= htmlspecialchars($tanggal_awal); ?>">
+    <section class="panel filter-panel">
+        <div class="ph"><h2>Filter tanggal</h2></div>
+        <form method="GET" class="filter">
+            <div class="field">
+                <label for="tanggal_awal">Dari tanggal</label>
+                <input type="date" name="tanggal_awal" id="tanggal_awal" value="<?= htmlspecialchars($tanggal_awal); ?>">
             </div>
-
-            <div class="form-group">
-                <label for="tanggal_akhir">Sampai Tanggal</label>
-                <input type="date" name="tanggal_akhir" id="tanggal_akhir"
-                       value="<?= htmlspecialchars($tanggal_akhir); ?>">
+            <div class="field">
+                <label for="tanggal_akhir">Sampai tanggal</label>
+                <input type="date" name="tanggal_akhir" id="tanggal_akhir" value="<?= htmlspecialchars($tanggal_akhir); ?>">
             </div>
-
-            <button type="submit" class="btn btn-maroon">Tampilkan</button>
-            <a href="index.php" class="btn btn-gray">Reset</a>
+            <div class="acts">
+                <button type="submit" class="btn p"><?= ico('filter', 'i sm'); ?> Tampilkan</button>
+                <a href="index.php" class="btn g">Reset</a>
+            </div>
         </form>
-    </div>
+    </section>
 
-    <!-- TABEL DATA -->
-    <div class="table-box">
-        <h3>Data Transaksi Pesanan</h3>
+    <!-- DATA -->
+    <section class="panel">
+        <div class="ph">
+            <h2>Data transaksi<span class="count"><?= $total_transaksi; ?> pesanan</span></h2>
+            <button type="button" onclick="window.print()" class="btn p no-print"><?= ico('print', 'i sm'); ?> Cetak</button>
+        </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th style="width:50px;">No</th>
-                    <th>ID Pesanan</th>
-                    <th>Nomor Meja</th>
-                    <th>Tanggal Pesanan</th>
-                    <th>Total Harga</th>
-                    <th>Metode Pembayaran</th>
-                    <th>Status Pembayaran</th>
-                </tr>
-            </thead>
+        <?php if ($total_transaksi > 0): ?>
 
-            <tbody>
-            <?php if (count($data_laporan) > 0) { ?>
-                <?php foreach ($data_laporan as $no => $data) { ?>
+        <!-- Tabel (desktop & cetak) -->
+        <div class="table-wrap">
+            <table>
+                <thead>
                     <tr>
-                        <td><?= $no + 1; ?></td>
-
+                        <th class="c" style="width:50px">No</th>
+                        <th>ID Pesanan</th>
+                        <th>Meja</th>
+                        <th>Tanggal</th>
+                        <th>Total</th>
+                        <th>Metode</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($data_laporan as $no => $d):
+                    $id = (int)$d['id_pesanan'];
+                    $lunas = ($d['status_bayar'] === 'lunas');
+                ?>
+                    <tr>
+                        <td class="c"><?= $no + 1; ?></td>
+                        <td class="idp">#<?= $id; ?></td>
+                        <td>Meja <?= htmlspecialchars((string)($d['nomor_meja'] ?? '-')); ?></td>
+                        <td><?= tgl($d['created_at']); ?></td>
+                        <td class="tot"><?= rp($d['total_harga']); ?></td>
                         <td>
-                            <strong>#<?= (int) $data['id_pesanan']; ?></strong>
-                        </td>
-
-                        <td>
-                            Meja <?= htmlspecialchars((string)($data['nomor_meja'] ?? '-')); ?>
-                        </td>
-
-                        <td>
-                            <?= $data['created_at']
-                                ? date('d-m-Y H:i', strtotime($data['created_at']))
-                                : '-'; ?>
-                        </td>
-
-                        <td>
-                            <strong>Rp <?= number_format((float)$data['total_harga'], 0, ',', '.'); ?></strong>
-                        </td>
-
-                        <td>
-                            <?php if (!empty($data['metode_bayar'])) : ?>
-                                <span class="badge badge-metode">
-                                    <?= htmlspecialchars(strtoupper($data['metode_bayar'])); ?>
-                                </span>
-                            <?php else : ?>
-                                <span style="color:#aaa;">-</span>
+                            <?php if (!empty($d['metode_bayar'])): ?>
+                                <span class="metode"><?= htmlspecialchars(strtoupper($d['metode_bayar'])); ?></span>
+                            <?php else: ?>
+                                <span class="dash">-</span>
                             <?php endif; ?>
                         </td>
-
                         <td>
-                            <?php if ($data['status_bayar'] === 'lunas') : ?>
-                                <span class="badge badge-lunas">✓ LUNAS</span>
-                            <?php else : ?>
-                                <form method="POST" style="display:inline;"
-                                      onsubmit="return confirm('Tandai pesanan #<?= $data['id_pesanan']; ?> sebagai LUNAS?')">
+                            <?php if ($lunas): ?>
+                                <span class="badge lunas"><?= ico('check', 'i sm'); ?> Lunas</span>
+                            <?php else: ?>
+                                <form method="POST" style="display:inline" onsubmit="return confirm('Tandai pesanan #<?= $id; ?> sebagai LUNAS?')">
                                     <input type="hidden" name="action" value="lunas">
-                                    <input type="hidden" name="id_pesanan" value="<?= $data['id_pesanan']; ?>">
-                                    <button type="submit" class="badge badge-belum" title="Klik untuk tandai lunas">
-                                        ● BELUM DIBAYAR
-                                    </button>
+                                    <input type="hidden" name="id_pesanan" value="<?= $id; ?>">
+                                    <button type="submit" class="badge belum" title="Klik untuk tandai lunas"><?= ico('clock', 'i sm'); ?> Belum dibayar</button>
                                 </form>
                             <?php endif; ?>
                         </td>
                     </tr>
-                <?php } ?>
-            <?php } else { ?>
-                <tr>
-                    <td colspan="7" class="kosong">
-                        Belum ada data pesanan.
-                    </td>
-                </tr>
-            <?php } ?>
-            </tbody>
-        </table>
-    </div>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
 
+        <!-- Kartu (HP) -->
+        <ul class="cards">
+            <?php foreach ($data_laporan as $d):
+                $id = (int)$d['id_pesanan'];
+                $lunas = ($d['status_bayar'] === 'lunas');
+            ?>
+            <li class="o">
+                <div class="row1">
+                    <div>
+                        <b>#<?= $id; ?> &middot; Meja <?= htmlspecialchars((string)($d['nomor_meja'] ?? '-')); ?></b>
+                        <small><?= tgl($d['created_at']); ?></small>
+                    </div>
+                    <?php if ($lunas): ?>
+                        <span class="badge lunas"><?= ico('check', 'i sm'); ?> Lunas</span>
+                    <?php else: ?>
+                        <span class="badge belum"><?= ico('clock', 'i sm'); ?> Belum dibayar</span>
+                    <?php endif; ?>
+                </div>
+                <div class="row2">
+                    <span class="tot"><?= rp($d['total_harga']); ?></span>
+                    <?php if (!empty($d['metode_bayar'])): ?>
+                        <span class="metode"><?= htmlspecialchars(strtoupper($d['metode_bayar'])); ?></span>
+                    <?php else: ?>
+                        <span class="dash">Metode: -</span>
+                    <?php endif; ?>
+                </div>
+                <?php if (!$lunas): ?>
+                <form method="POST" onsubmit="return confirm('Tandai pesanan #<?= $id; ?> sebagai LUNAS?')">
+                    <input type="hidden" name="action" value="lunas">
+                    <input type="hidden" name="id_pesanan" value="<?= $id; ?>">
+                    <button type="submit" class="btn"><?= ico('check', 'i sm'); ?> Tandai lunas</button>
+                </form>
+                <?php endif; ?>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+
+        <?php else: ?>
+            <p class="empty"><?= $ada_filter ? 'Tidak ada pesanan pada rentang tanggal ini.' : 'Belum ada data pesanan.'; ?></p>
+        <?php endif; ?>
+    </section>
+
+</main>
+
+<!-- NAVIGASI BAWAH (HP) -->
+<nav class="tabbar" aria-label="Navigasi">
+    <a href="../dashboard.php"><span class="pill"><?= ico('home', 'i lg'); ?></span>Beranda</a>
+    <a href="../menu/index.php"><span class="pill"><?= ico('menu', 'i lg'); ?></span>Menu</a>
+    <a href="../meja/index.php"><span class="pill"><?= ico('table', 'i lg'); ?></span>Meja</a>
+    <a href="index.php" class="on"><span class="pill"><?= ico('chart', 'i lg'); ?></span>Laporan</a>
+    <button type="button" id="more" aria-haspopup="true" aria-expanded="false"><span class="pill"><?= ico('more', 'i lg'); ?></span>Lainnya</button>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="menu">
+    <div class="grab"></div>
+    <a href="../users/index.php" role="menuitem"><?= ico('user', 'i lg'); ?> User</a>
+    <a href="../kategori/index.php" role="menuitem"><?= ico('grid', 'i lg'); ?> Kategori</a>
+    <a href="../../logout.php" role="menuitem"><?= ico('logout', 'i lg'); ?> Logout</a>
 </div>
+
+<script>
+(function () {
+    var b = document.body, btn = document.getElementById('more');
+    function set(o) { b.classList.toggle('open', o); btn.setAttribute('aria-expanded', o ? 'true' : 'false'); }
+    btn.addEventListener('click', function () { set(!b.classList.contains('open')); });
+    document.getElementById('scrim').addEventListener('click', function () { set(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
+})();
+</script>
 
 </body>
 </html>

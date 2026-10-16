@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 include "../config.php";
@@ -219,31 +218,43 @@ if (!$query) {
             color: #187332;
         }
 
-        /* FORM AKSI */
-        select, button {
-            padding: 8px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            font-size: 12px;
-        }
-
-        button {
-            background: #6d1720;
+        /* TOMBOL AKSI */
+        .btn-aksi {
+            display: inline-block;
+            padding: 10px 18px;
+            border-radius: 6px;
+            border: none;
+            font-size: 12.5px;
+            font-weight: bold;
             color: white;
             cursor: pointer;
-            border: none;
-            margin-top: 5px;
-            font-weight: bold;
-            padding: 9px 14px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
         }
 
-        button:hover {
-            background: #8d2630;
+        .btn-mulai {
+            background: #b8860b;
+        }
+
+        .btn-mulai:hover {
+            background: #d4a017;
+            transform: translateY(-1px);
+        }
+
+        .btn-selesai {
+            background: #187332;
+        }
+
+        .btn-selesai:hover {
+            background: #21a04a;
+            transform: translateY(-1px);
         }
 
         .selesai-text {
             color: #187332;
             font-weight: bold;
+            font-size: 12.5px;
         }
 
         .kosong {
@@ -442,36 +453,32 @@ if (!$query) {
                                 </td>
 
                                 <td>
-                                    <?php if ($data['status_memasak'] != 'selesai'): ?>
+                                    <?php if ($data['status_memasak'] == 'antre'): ?>
 
-                                        <form method="POST" action="status_pesanan.php">
-                                            <input
-                                                type="hidden"
-                                                name="id_detail"
-                                                value="<?= (int) $data['id_detail']; ?>"
-                                            >
+                                        <!-- Tombol Mulai Memasak -->
+                                        <form method="POST" action="status_pesanan.php" style="display:inline;">
+                                            <input type="hidden" name="id_detail" value="<?= (int) $data['id_detail']; ?>">
+                                            <input type="hidden" name="status_memasak" value="dimasak">
+                                            <button type="submit" class="btn-aksi btn-mulai">
+                                                ▶ Mulai Memasak
+                                            </button>
+                                        </form>
 
-                                            <select name="status_memasak" required>
-                                                <?php if ($data['status_memasak'] == 'antre'): ?>
-                                                    <option value="dimasak">
-                                                        Mulai Memasak
-                                                    </option>
-                                                <?php elseif ($data['status_memasak'] == 'dimasak'): ?>
-                                                    <option value="selesai">
-                                                        Selesai Memasak
-                                                    </option>
-                                                <?php endif; ?>
-                                            </select>
+                                    <?php elseif ($data['status_memasak'] == 'dimasak'): ?>
 
-                                            <button type="submit">
-                                                Simpan
+                                        <!-- Tombol Selesai Memasak -->
+                                        <form method="POST" action="status_pesanan.php" style="display:inline;">
+                                            <input type="hidden" name="id_detail" value="<?= (int) $data['id_detail']; ?>">
+                                            <input type="hidden" name="status_memasak" value="selesai">
+                                            <button type="submit" class="btn-aksi btn-selesai">
+                                                ✓ Selesai Memasak
                                             </button>
                                         </form>
 
                                     <?php else: ?>
 
                                         <span class="selesai-text">
-                                            Sudah selesai
+                                            ✓ Sudah selesai
                                         </span>
 
                                     <?php endif; ?>
