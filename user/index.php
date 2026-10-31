@@ -2,6 +2,24 @@
 session_start();
 include "../config.php";
 
+// ==========================================
+// LOGIKA MENANGKAP NOMOR MEJA DARI URL
+// ==========================================
+// Menangkap parameter ?meja= dari URL barcode
+// Jika tidak ada parameter, cek session, jika belum ada juga default ke '01'
+if (isset($_GET['meja'])) {
+    $nomor_meja = $_GET['meja'];
+    $_SESSION['meja'] = $nomor_meja; // Simpan ke session agar bisa dipakai di keranjang.php
+} elseif (isset($_SESSION['meja'])) {
+    $nomor_meja = $_SESSION['meja'];
+} else {
+    $nomor_meja = '01';
+}
+
+// Format tampilan agar selalu 2 digit (contoh: 1 jadi 01, 2 jadi 02)
+$display_meja = str_pad($nomor_meja, 2, '0', STR_PAD_LEFT);
+// ==========================================
+
 $query = mysqli_query($db, "
     SELECT menu.*, kategori.nama_kategori 
     FROM menu 
@@ -696,9 +714,10 @@ if (!$query) {
                 <small>RASA AUTENTIK SEJAK 2024</small>
             </div>
         </div>
+        <!-- NOMOR MEJA DINAMIS DARI URL -->
         <div class="table-chip">
             <span class="live"></span>
-            Meja 01
+            Meja <?= htmlspecialchars($display_meja); ?>
         </div>
     </div>
 </header>
@@ -825,9 +844,10 @@ if (!$query) {
 <!-- BOTTOM NAV -->
 <div class="bottom-nav">
     <div class="batik-overlay"></div>
-    <a href="index.php" class="nav-item active">
+    <!-- Link Nav Ditambahkan Parameter Meja agar tidak hilang saat pindah halaman -->
+    <a href="index.php?meja=<?= urlencode($nomor_meja); ?>" class="nav-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
             <polyline points="9 22 9 12 15 12 15 22"></polyline>
         </svg>
         Home

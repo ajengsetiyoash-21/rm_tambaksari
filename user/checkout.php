@@ -7,7 +7,13 @@ if (empty($_SESSION['keranjang'])) {
     exit;
 }
 
-$id_meja = $_SESSION['id_meja'] ?? 1;
+// ==========================================
+// PERBAIKAN: AMBIL NOMOR MEJA DARI URL / SESSION
+// ==========================================
+$id_meja = isset($_GET['meja']) ? $_GET['meja'] : (isset($_SESSION['meja']) ? $_SESSION['meja'] : '1');
+$_SESSION['meja'] = $id_meja; // Simpan kembali untuk berjaga-jaga
+$display_meja = str_pad($id_meja, 2, '0', STR_PAD_LEFT);
+
 $id_user = $_SESSION['id_user'] ?? null;
 
 $items = [];
@@ -48,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $metode_bayar = 'Cash';
     }
 
+    // Simpan pesanan ke database dengan $id_meja yang benar
     $stmt = mysqli_prepare($db, "
         INSERT INTO pesanan
         (id_user, id_meja, total_harga, status_bayar, metode_bayar, catatan, created_at)
@@ -513,7 +520,8 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
 
 <header class="topbar">
     <div class="topbar-inner">
-        <a href="keranjang.php" class="btn-back">
+        <!-- Link Kembali membawa parameter meja -->
+        <a href="keranjang.php?meja=<?= urlencode($id_meja); ?>" class="btn-back">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </a>
         <h1>Checkout</h1>
@@ -535,11 +543,13 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
                 <div class="resto-name">RM. Tambaksari</div>
                 <div class="resto-sub">Makan di tempat</div>
             </div>
-            <div class="meja-chip">Meja <?= htmlspecialchars($id_meja); ?></div>
+            <!-- Menampilkan nomor meja dinamis (2 digit) -->
+            <div class="meja-chip">Meja <?= htmlspecialchars($display_meja); ?></div>
         </div>
     </div>
 
     <form method="POST" id="checkoutForm">
+        <input type="hidden" name="meja" value="<?= htmlspecialchars($id_meja); ?>">
 
         <div class="card">
             <div class="card-title">Ringkasan pesanan</div>
@@ -571,7 +581,8 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
             <?php endforeach; ?>
             </div>
 
-            <a href="index.php" class="btn-more">
+            <!-- Link Tambah Menu Lagi membawa parameter meja -->
+            <a href="index.php?meja=<?= urlencode($id_meja); ?>" class="btn-more">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Tambah menu lagi
             </a>
@@ -667,7 +678,7 @@ $metode_terpilih = $_POST['metode_bayar'] ?? 'Cash';
         });
 
         if (qty === 0) {
-            window.location = 'keranjang.php';
+            window.location = 'keranjang.php?meja=<?= urlencode($id_meja); ?>';
             return;
         }
 
