@@ -8,7 +8,7 @@ if (!isset($_SESSION['status']) || $_SESSION['status'] != "login" || ($_SESSION[
     exit;
 }
 
-// Ambil daftar pesanan
+// Ambil daftar pesanan (per item), lalu dikelompokkan per pesanan
 $query = mysqli_query($db, "
     SELECT
         dp.id_detail,
@@ -22,22 +22,45 @@ $query = mysqli_query($db, "
     JOIN pesanan p ON dp.id_pesanan = p.id_pesanan
     JOIN menu mn ON dp.id_menu = mn.id_menu
     JOIN meja m ON p.id_meja = m.id_meja
-    ORDER BY p.created_at DESC, dp.id_detail DESC
+    WHERE dp.id_pesanan NOT IN (
+        SELECT id_pesanan FROM detail_pesanan WHERE status_memasak = 'diantar'
+    )
+    ORDER BY p.created_at DESC, p.id_pesanan DESC, dp.id_detail ASC
 ");
 
 if (!$query) {
     die("Gagal mengambil data pesanan.");
 }
 
-$pesanan = [];
-$hitung  = ['semua' => 0, 'antre' => 0, 'dimasak' => 0, 'selesai' => 0];
+$pesanan = [];   // key = id_pesanan
 while ($row = mysqli_fetch_assoc($query)) {
-    $pesanan[] = $row;
-    $hitung['semua']++;
-    if (isset($hitung[$row['status_memasak']])) {
-        $hitung[$row['status_memasak']]++;
+    $id = (int)$row['id_pesanan'];
+    if (!isset($pesanan[$id])) {
+        $pesanan[$id] = [
+            'id_pesanan' => $id,
+            'nomor_meja' => $row['nomor_meja'],
+            'created_at' => $row['created_at'],
+            'items'      => [],
+            'status'     => 'antre',
+        ];
     }
+    $pesanan[$id]['items'][] = $row;
 }
+
+// Tentukan status per pesanan + hitung untuk filter
+$hitung = ['semua' => 0, 'antre' => 0, 'dimasak' => 0, 'selesai' => 0];
+foreach ($pesanan as &$p) {
+    $semuaSelesai = true;
+    $adaDimasak   = false;
+    foreach ($p['items'] as $it) {
+        if ($it['status_memasak'] !== 'selesai') $semuaSelesai = false;
+        if ($it['status_memasak'] === 'dimasak' || $it['status_memasak'] === 'selesai') $adaDimasak = true;
+    }
+    $p['status'] = $semuaSelesai ? 'selesai' : ($adaDimasak ? 'dimasak' : 'antre');
+    $hitung['semua']++;
+    $hitung[$p['status']]++;
+}
+unset($p);
 
 // Helper
 function ico($id, $cls = 'i') { return '<svg class="' . $cls . '" aria-hidden="true"><use href="#i-' . $id . '"/></svg>'; }
@@ -133,7 +156,7 @@ a { color: inherit; text-decoration: none; }
 .ph h2 { font-size: 18px; font-weight: 800; color: var(--ink); }
 .ph .count { font-size: 13px; color: var(--muted); font-weight: 600; }
 
-.tickets { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; list-style: none; }
+.tickets { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; list-style: none; align-items: start; }
 .t { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .t.masak { border-color: #b9d2f6; }
 .t.beres { background: #fbfbfb; }
@@ -152,9 +175,13 @@ a { color: inherit; text-decoration: none; }
 .badge.dimasak { background: var(--blue-bg); color: var(--blue); }
 .badge.selesai { background: var(--green-bg); color: var(--green); }
 
-.t .menu { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.t .menu b { font-size: 18px; font-weight: 800; color: var(--ink); line-height: 1.25; overflow-wrap: anywhere; }
-.qty { flex: none; background: var(--ink); color: #fff; border-radius: 12px; padding: 6px 12px; font-size: 16px; font-weight: 800; }
+/* Daftar menu dalam satu pesanan */
+.items { list-style: none; display: grid; gap: 8px; }
+.items li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #faf7f7; border-radius: 12px; }
+.items li b { font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.25; overflow-wrap: anywhere; }
+.items li.ok b { text-decoration: line-through; color: var(--muted); }
+
+.qty { flex: none; background: var(--ink); color: #fff; border-radius: 12px; padding: 4px 10px; font-size: 14px; font-weight: 800; }
 .t.beres .qty { background: #8a8184; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 13px 18px; border-radius: 14px; font-size: 15px; font-weight: 800; border: 0; cursor: pointer; font-family: inherit; color: #fff; }
@@ -269,39 +296,42 @@ a { color: inherit; text-decoration: none; }
 
     <div class="ph">
         <h2>Antrean pesanan dapur</h2>
-        <span class="count" id="jumlahTampil"><?= $hitung['semua']; ?> menu</span>
+        <span class="count" id="jumlahTampil"><?= $hitung['semua']; ?> pesanan</span>
     </div>
 
     <?php if ($hitung['semua'] > 0): ?>
     <ul class="tickets" id="daftar">
-        <?php foreach ($pesanan as $d):
-            $st = $d['status_memasak'];
-            $kelas_st = in_array($st, ['antre', 'dimasak', 'selesai'], true) ? $st : 'antre';
+        <?php foreach ($pesanan as $p):
+            $kelas_st = $p['status'];
         ?>
         <li class="t <?= $kelas_st === 'dimasak' ? 'masak' : ($kelas_st === 'selesai' ? 'beres' : ''); ?>" data-status="<?= $kelas_st; ?>">
             <div class="row1">
-                <div class="mj"><div><small>MEJA</small><b><?= htmlspecialchars((string)$d['nomor_meja']); ?></b></div></div>
+                <div class="mj"><div><small>MEJA</small><b><?= htmlspecialchars((string)$p['nomor_meja']); ?></b></div></div>
                 <div class="info">
-                    <span>Pesanan #<?= (int)$d['id_pesanan']; ?></span>
-                    <em><?= ico('clock', 'i sm'); ?> <?= htmlspecialchars(date('d-m-Y H:i', strtotime($d['created_at']))); ?></em>
+                    <span>Pesanan #<?= (int)$p['id_pesanan']; ?></span>
+                    <em><?= ico('clock', 'i sm'); ?> <?= htmlspecialchars(date('d-m-Y H:i', strtotime($p['created_at']))); ?></em>
                 </div>
                 <span class="badge <?= $kelas_st; ?>"><?= ucfirst($kelas_st); ?></span>
             </div>
 
-            <div class="menu">
-                <b><?= htmlspecialchars($d['nama_menu']); ?></b>
-                <span class="qty">&times;<?= (int)$d['jumlah']; ?></span>
-            </div>
+            <ul class="items">
+                <?php foreach ($p['items'] as $it): ?>
+                <li class="<?= $it['status_memasak'] === 'selesai' ? 'ok' : ''; ?>">
+                    <b><?= htmlspecialchars($it['nama_menu']); ?></b>
+                    <span class="qty">&times;<?= (int)$it['jumlah']; ?></span>
+                </li>
+                <?php endforeach; ?>
+            </ul>
 
             <?php if ($kelas_st === 'antre'): ?>
                 <form method="POST" action="status_pesanan.php">
-                    <input type="hidden" name="id_detail" value="<?= (int)$d['id_detail']; ?>">
+                    <input type="hidden" name="id_pesanan" value="<?= (int)$p['id_pesanan']; ?>">
                     <input type="hidden" name="status_memasak" value="dimasak">
                     <button type="submit" class="btn mulai"><?= ico('flame', 'i sm'); ?> Mulai memasak</button>
                 </form>
             <?php elseif ($kelas_st === 'dimasak'): ?>
                 <form method="POST" action="status_pesanan.php">
-                    <input type="hidden" name="id_detail" value="<?= (int)$d['id_detail']; ?>">
+                    <input type="hidden" name="id_pesanan" value="<?= (int)$p['id_pesanan']; ?>">
                     <input type="hidden" name="status_memasak" value="selesai">
                     <button type="submit" class="btn selesai"><?= ico('check', 'i sm'); ?> Selesai memasak</button>
                 </form>
@@ -336,7 +366,7 @@ a { color: inherit; text-decoration: none; }
 <script>
 (function () {
     var chips = document.querySelectorAll('.chip'),
-        items = document.querySelectorAll('#daftar .t'),
+        items = document.querySelectorAll('#daftar > .t'),
         kosong = document.getElementById('kosongFilter'),
         jumlah = document.getElementById('jumlahTampil');
 
@@ -348,7 +378,7 @@ a { color: inherit; text-decoration: none; }
             if (cocok) tampil++;
         });
         chips.forEach(function (c) { c.classList.toggle('on', c.getAttribute('data-filter') === filter); });
-        if (jumlah) jumlah.textContent = tampil + ' menu';
+        if (jumlah) jumlah.textContent = tampil + ' pesanan';
         if (kosong) kosong.style.display = (tampil === 0) ? 'block' : 'none';
         try { sessionStorage.setItem('filterPesananKoki', filter); } catch (e) {}
     }
@@ -361,6 +391,12 @@ a { color: inherit; text-decoration: none; }
     var simpan = 'semua';
     try { simpan = sessionStorage.getItem('filterPesananKoki') || 'semua'; } catch (e) {}
     terapkan(simpan);
+
+    // Muat ulang otomatis tiap 15 detik agar pesanan yang sudah diantar pelayan hilang
+    // (filter tetap diingat lewat sessionStorage)
+    setInterval(function () {
+        if (document.visibilityState === 'visible') { location.reload(); }
+    }, 15000);
 })();
 </script>
 
