@@ -212,6 +212,24 @@ if(isset($_POST['login'])){
                 transform: translateY(0);
             }
         }
+
+        .btn-kembali {
+            background-color: #8c1c2b; /* Warna merah marun sesuai gambar */
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+            text-decoration: none;
+        }
+
+        .btn-kembali {
+            background-color: #6e131f;
+        }
     </style>
 </head>
 <body>
@@ -250,7 +268,7 @@ if(isset($_POST['login'])){
 
             <button type="submit" name="login" class="btn-submit">Login</button>
 
-            <a href="index.php">Kembali Ke Index</a>
+            <a href="index.php" class="btn-kembali">Kembali Ke Index</a>
         </form>
 
         <!-- Footer Card -->
