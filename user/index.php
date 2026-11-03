@@ -5,23 +5,20 @@ include "../config.php";
 // ==========================================
 // LOGIKA MENANGKAP NOMOR MEJA DARI URL
 // ==========================================
-// Menangkap parameter ?meja= dari URL barcode
-// Jika tidak ada parameter, cek session, jika belum ada juga default ke '01'
 if (isset($_GET['meja'])) {
     $nomor_meja = $_GET['meja'];
-    $_SESSION['meja'] = $nomor_meja; // Simpan ke session agar bisa dipakai di keranjang.php
+    $_SESSION['meja'] = $nomor_meja; 
 } elseif (isset($_SESSION['meja'])) {
     $nomor_meja = $_SESSION['meja'];
 } else {
     $nomor_meja = '01';
 }
 
-// Format tampilan agar selalu 2 digit (contoh: 1 jadi 01, 2 jadi 02)
 $display_meja = str_pad($nomor_meja, 2, '0', STR_PAD_LEFT);
 // ==========================================
 
 $query = mysqli_query($db, "
-    SELECT menu.*, kategori.nama_kategori 
+    SELECT menu.*, kategori.nama_kategori, kategori.parent_id 
     FROM menu 
     LEFT JOIN kategori ON menu.id_kategori = kategori.id_kategori 
     ORDER BY menu.id_menu ASC
@@ -30,6 +27,8 @@ $query = mysqli_query($db, "
 if (!$query) {
     die("Query error: " . mysqli_error($db));
 }
+
+$q_induk = mysqli_query($db, "SELECT * FROM kategori WHERE parent_id IS NULL OR parent_id = 0 ORDER BY id_kategori ASC");
 ?>
 
 <!DOCTYPE html>
@@ -86,7 +85,6 @@ if (!$query) {
             background-color: var(--bg);
         }
 
-        /* MOTIF BATIK — subtle overlay */
         .batik-overlay {
             position: absolute;
             inset: 0;
@@ -96,7 +94,6 @@ if (!$query) {
             background-size: 120px 120px;
         }
 
-        /* HEADER — BANNER MELENGKUNG */
         .header {
             position: relative;
             background: linear-gradient(150deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
@@ -193,7 +190,6 @@ if (!$query) {
             50% { opacity: 0.4; }
         }
 
-        /* HERO CARD — MENGAMBANG */
         .hero-wrap {
             padding: 0 22px;
             margin-top: -42px;
@@ -261,7 +257,6 @@ if (!$query) {
             z-index: 1;
         }
 
-        /* SEARCH */
         .search-wrap {
             padding: 20px 22px 0 22px;
         }
@@ -351,7 +346,6 @@ if (!$query) {
             box-shadow: 0 6px 18px rgba(61, 40, 23, 0.3);
         }
 
-        /* SECTION TITLE */
         .section-head {
             display: flex;
             justify-content: space-between;
@@ -372,7 +366,6 @@ if (!$query) {
             font-weight: 600;
         }
 
-        /* MENU LIST — CARD HORIZONTAL */
         .menu-list {
             display: flex;
             flex-direction: column;
@@ -520,7 +513,6 @@ if (!$query) {
 
         .btn-add svg, .btn-add span { position: relative; z-index: 1; }
 
-        /* BOTTOM NAV */
         .bottom-nav {
             position: fixed;
             bottom: 14px;
@@ -592,7 +584,6 @@ if (!$query) {
             transform: translateY(-3px) scale(1.1);
         }
 
-        /* BADGE COUNTER DI NAV */
         .nav-item .nav-badge {
             position: absolute;
             top: 0;
@@ -612,7 +603,6 @@ if (!$query) {
             z-index: 2;
         }
 
-        /* TOAST */
         .toast {
             position: fixed;
             bottom: 105px;
@@ -654,7 +644,6 @@ if (!$query) {
             flex-shrink: 0;
         }
 
-        /* EMPTY */
         .empty {
             text-align: center;
             padding: 60px 20px;
@@ -665,7 +654,6 @@ if (!$query) {
         .empty p { font-size: 15px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
         .empty small { font-size: 12.5px; }
 
-        /* ANIMASI */
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(18px); }
             to { opacity: 1; transform: translateY(0); }
@@ -678,7 +666,6 @@ if (!$query) {
         .menu-item:nth-child(5) { animation-delay: 0.15s; }
         .menu-item:nth-child(6) { animation-delay: 0.18s; }
 
-        /* RESPONSIVE */
         @media (min-width: 600px) {
             .menu-list {
                 display: grid;
@@ -694,6 +681,69 @@ if (!$query) {
                 padding-right: 32px;
             }
         }
+
+        /* =========================================
+           MODAL CUSTOMIZATION ICE/HOT (TEMA USER)
+           ========================================= */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(36, 22, 9, 0.6); z-index: 9999;
+            display: none; justify-content: center; align-items: flex-end; /* Dari bawah */
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-content {
+            background: #fff; width: 100%; max-width: 500px;
+            border-radius: 24px 24px 0 0; padding: 24px 24px 40px;
+            animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .modal-title { font-size: 22px; font-weight: 800; color: #1a1a1a; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .modal-desc { font-size: 13px; color: #888; margin-bottom: 4px; }
+        .modal-price { font-size: 20px; font-weight: 800; color: #1a1a1a; margin-top: 10px; }
+        .btn-close { background: none; border: none; font-size: 28px; color: #999; cursor: pointer; line-height: 1; padding: 0 8px; }
+
+        .option-group { margin-bottom: 24px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 24px; }
+        .option-title { font-size: 15px; font-weight: 800; color: #1a1a1a; margin-bottom: 16px; }
+        .option-title span { font-weight: 500; color: #999; font-size: 13px; margin-left: 6px; }
+        .option-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .btn-option {
+            background: #f9f9f9; border: 1.5px solid #eee; border-radius: 12px;
+            padding: 24px 10px; font-family: inherit; font-size: 16px; font-weight: 700;
+            color: #666; cursor: pointer; transition: all 0.2s;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+        }
+        .btn-option.active {
+            border-color: #8d2630; background: #fff5f5; color: #8d2630;
+        }
+        .btn-option svg { width: 40px; height: 40px; stroke-width: 1.5; }
+
+        .modal-footer {
+            position: sticky; bottom: 0; background: #fff; padding-top: 16px;
+            display: flex; gap: 12px; align-items: center; margin-top: 10px;
+        }
+        
+        .qty-selector {
+            display: flex; align-items: center; border: 1.5px solid #eee; border-radius: 10px; overflow: hidden; height: 52px;
+        }
+        .qty-selector button {
+            background: #fff; border: none; width: 44px; height: 100%; font-size: 22px; color: #888; cursor: pointer;
+        }
+        .qty-selector span { width: 40px; text-align: center; font-weight: 800; font-size: 16px; }
+
+        .btn-add-custom {
+            flex: 1; background: #b3262f; color: #fff; height: 52px;
+            border: none; border-radius: 10px; font-size: 16px; font-weight: 800;
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-add-custom:hover { background: #8d2630; }
     </style>
 </head>
 <body>
@@ -748,7 +798,7 @@ if (!$query) {
     </div>
 </div>
 
-<!-- KATEGORI -->
+<!-- KATEGORI (DINAMIS BERTINGKAT) -->
 <div class="kategori-scroll">
     <button class="kat-btn active" data-kategori="semua">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -759,24 +809,28 @@ if (!$query) {
         </svg>
         Semua
     </button>
-    <button class="kat-btn" data-kategori="makanan">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path>
-            <path d="M7 2v20"></path>
-            <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"></path>
-        </svg>
-        Makanan
-    </button>
-    <button class="kat-btn" data-kategori="minuman">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17 8h1a4 4 0 1 1 0 8h-1"></path>
-            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"></path>
-            <line x1="6" y1="2" x2="6" y2="4"></line>
-            <line x1="10" y1="2" x2="10" y2="4"></line>
-            <line x1="14" y1="2" x2="14" y2="4"></line>
-        </svg>
-        Minuman
-    </button>
+
+    <?php
+    // Tampilkan Kategori Utama
+    while ($utama = mysqli_fetch_assoc($q_induk)) {
+        $id_utama = $utama['id_kategori'];
+        $nama_utama = strtolower($utama['nama_kategori']);
+        ?>
+        <button class="kat-btn" data-kategori="<?= htmlspecialchars($nama_utama); ?>" style="font-weight: 800;">
+            <?= htmlspecialchars($utama['nama_kategori']); ?>
+        </button>
+
+        <?php
+        // Tampilkan Sub-Kategori
+        $q_sub = mysqli_query($db, "SELECT * FROM kategori WHERE parent_id = $id_utama ORDER BY id_kategori ASC");
+        while ($sub = mysqli_fetch_assoc($q_sub)) {
+            $nama_sub = strtolower($sub['nama_kategori']);
+            ?>
+            <button class="kat-btn" data-kategori="<?= htmlspecialchars($nama_sub); ?>" style="font-size: 11px; padding: 8px 14px; background: #f7efdc; border-color: #e6d4b0;">
+                ↳ <?= htmlspecialchars($sub['nama_kategori']); ?>
+            </button>
+        <?php } ?>
+    <?php } ?>
 </div>
 
 <!-- SECTION TITLE -->
@@ -792,6 +846,7 @@ if (!$query) {
         <?php while ($menu = mysqli_fetch_assoc($query)) : ?>
             <div class="menu-item"
                  data-kategori="<?= htmlspecialchars(strtolower($menu['nama_kategori'] ?? '')); ?>"
+                 data-parent="<?= htmlspecialchars($menu['parent_id'] ?? '0'); ?>"
                  data-nama="<?= htmlspecialchars(strtolower($menu['nama_menu'])); ?>">
 
                 <div class="menu-thumb">
@@ -813,6 +868,7 @@ if (!$query) {
                         <button class="btn-add"
                                 data-id="<?= $menu['id_menu']; ?>"
                                 data-nama="<?= htmlspecialchars($menu['nama_menu']); ?>"
+                                data-harga="<?= $menu['harga']; ?>"
                                 onclick="pesanMenu(this)">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="9" cy="21" r="1"></circle>
@@ -844,15 +900,14 @@ if (!$query) {
 <!-- BOTTOM NAV -->
 <div class="bottom-nav">
     <div class="batik-overlay"></div>
-    <!-- Link Nav Ditambahkan Parameter Meja agar tidak hilang saat pindah halaman -->
     <a href="index.php?meja=<?= urlencode($nomor_meja); ?>" class="nav-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
             <polyline points="9 22 9 12 15 12 15 22"></polyline>
         </svg>
         Home
     </a>
-    <a href="keranjang.php" class="nav-item">
+    <a href="keranjang.php?meja=<?= urlencode($nomor_meja); ?>" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="9" cy="21" r="1"></circle>
             <circle cx="20" cy="21" r="1"></circle>
@@ -861,7 +916,7 @@ if (!$query) {
         Keranjang
         <span class="nav-badge" id="cartBadge">0</span>
     </a>
-    <a href="status.php" class="nav-item">
+    <a href="status.php?meja=<?= urlencode($nomor_meja); ?>" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
@@ -872,9 +927,56 @@ if (!$query) {
     </a>
 </div>
 
+<!-- MODAL CUSTOMIZATION (BERDASARKAN GAMBAR) -->
+<div class="modal-overlay" id="modalCustom" onclick="if(event.target === this) closeModal()">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title" id="mNama">Nama Menu</div>
+                <div class="modal-desc">Pilih suhu penyajian pesanan Anda</div>
+                <div class="modal-price" id="mHarga">Rp 0</div>
+            </div>
+            <button class="btn-close" onclick="closeModal()">&times;</button>
+        </div>
+        
+        <div class="option-group">
+            <div class="option-title">Temperature <span>Select 1</span></div>
+            <div class="option-grid">
+                <!-- Tombol Ice -->
+                <button class="btn-option active" id="optIce" onclick="pilihSuhu('Dingin', 'optIce')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M5 8h14l-1.5 12H6.5L5 8Z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/>
+                    </svg>
+                    Ice
+                </button>
+                <!-- Tombol Hot -->
+                <button class="btn-option" id="optHot" onclick="pilihSuhu('Panas', 'optHot')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M4 9h13v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V9Z"/><path d="M17 11h1a2 2 0 0 1 0 4h-1"/><path d="M8 4v2"/><path d="M12 3v3"/>
+                    </svg>
+                    Hot
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <!-- Pengatur Jumlah (Stepper) -->
+            <div class="qty-selector">
+                <button type="button" onclick="ubahQty(-1)">-</button>
+                <span id="mQty">1</span>
+                <button type="button" onclick="ubahQty(1)">+</button>
+            </div>
+            <!-- Tombol Keranjang Besar -->
+            <button class="btn-add-custom" id="btnAddCustom" onclick="prosesTambah()">
+                + Keranjang Rp0
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     // =========================
-    // Filter & Search
+    // Filter & Search (Mendukung Sub-Kategori)
     // =========================
     const searchInput = document.getElementById('searchInput');
     const katBtns = document.querySelectorAll('.kat-btn');
@@ -887,10 +989,17 @@ if (!$query) {
     function applyFilter() {
         let visible = 0;
         menuItems.forEach(item => {
-            const kategori = (item.getAttribute('data-kategori') || '').toLowerCase().trim();
+            const kategoriMenu = (item.getAttribute('data-kategori') || '').toLowerCase().trim();
             const nama = item.getAttribute('data-nama') || '';
 
-            const cocokKat = (filterKategori === 'semua') || (kategori === filterKategori.toLowerCase());
+            let cocokKat = false;
+
+            if (filterKategori === 'semua') {
+                cocokKat = true;
+            } else {
+                cocokKat = (kategoriMenu === filterKategori);
+            }
+
             const cocokCari = nama.includes(filterSearch.toLowerCase());
 
             if (cocokKat && cocokCari) {
@@ -947,13 +1056,85 @@ if (!$query) {
     }
 
     // =========================
-    // Pesan Menu — Kirim ke Keranjang via AJAX
+    // Logika Pop-up ICE / HOT (Sesuai Gambar)
     // =========================
+    let currentItem = null;
+    let currentSuhu = 'Dingin';
+    let currentQty = 1;
+
     function pesanMenu(btn) {
         const id = btn.getAttribute('data-id');
         const nama = btn.getAttribute('data-nama');
+        const harga = parseInt(btn.getAttribute('data-harga'));
 
-        // Animasi tombol feedback
+        // PENGECUALIAN: Jus dan Float langsung masuk tanpa pop-up
+        let skipModal = nama.toLowerCase().includes('jus') || nama.toLowerCase().includes('float');
+
+        // Deteksi minuman lain (Teh, Jeruk, Kopi, Susu, dll)
+        let isMinuman = nama.toLowerCase().includes('teh') || 
+                        nama.toLowerCase().includes('jeruk') || 
+                        nama.toLowerCase().includes('kopi') ||
+                        nama.toLowerCase().includes('susu') ||
+                        nama.toLowerCase().includes('cappucino') ||
+                        nama.toLowerCase().includes('degan');
+
+        if (isMinuman && !skipModal) {
+            // Tampilkan Modal
+            currentItem = { id, nama, harga, btn };
+            currentSuhu = 'Dingin'; 
+            currentQty = 1;
+
+            document.getElementById('mNama').innerText = nama;
+            document.getElementById('mHarga').innerText = 'Rp ' + harga.toLocaleString('id-ID');
+            document.getElementById('mQty').innerText = currentQty;
+            
+            document.getElementById('optIce').classList.add('active');
+            document.getElementById('optHot').classList.remove('active');
+            updateBtnHarga();
+
+            document.getElementById('modalCustom').classList.add('show');
+        } else {
+            // Jika makanan / jus / float, langsung tambahkan 1 pcs
+            eksekusiTambah(id, nama, btn, 1);
+        }
+    }
+
+    function pilihSuhu(suhu, idBtn) {
+        currentSuhu = suhu;
+        document.querySelectorAll('.btn-option').forEach(b => b.classList.remove('active'));
+        document.getElementById(idBtn).classList.add('active');
+    }
+
+    function ubahQty(delta) {
+        currentQty += delta;
+        if(currentQty < 1) currentQty = 1;
+        document.getElementById('mQty').innerText = currentQty;
+        updateBtnHarga();
+    }
+
+    function updateBtnHarga() {
+        if(currentItem) {
+            let total = currentItem.harga * currentQty;
+            document.getElementById('btnAddCustom').innerText = '+ Keranjang Rp' + total.toLocaleString('id-ID');
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('modalCustom').classList.remove('show');
+        currentItem = null;
+    }
+
+    function prosesTambah() {
+        if (currentItem) {
+            let namaBaru = currentItem.nama + " (" + currentSuhu + ")";
+            eksekusiTambah(currentItem.id, namaBaru, currentItem.btn, currentQty);
+            closeModal();
+        }
+    }
+
+    // Fungsi pengiriman ke keranjang (termasuk perulangan qty)
+    function eksekusiTambah(id, nama, btn, qty) {
+        // Animasi tombol sebentar
         const originalText = btn.querySelector('span').textContent;
         btn.querySelector('span').textContent = '✓ Ditambahkan';
         btn.style.background = 'linear-gradient(135deg, #2d6a4f, #40916c)';
@@ -962,31 +1143,30 @@ if (!$query) {
             btn.style.background = '';
         }, 900);
 
-        // Toast
-        showToast('"' + nama + '" ditambahkan ke keranjang!');
+        showToast('"' + nama + '" ditambahkan!');
 
-        // Kirim ke keranjang.php
-        const fd = new FormData();
-        fd.append('action', 'tambah');
-        fd.append('id_menu', id);
-        fd.append('ajax', '1');
+        // Kirim perulangan request sebanyak qty (jika user pilih 3, kirim 3x)
+        for(let i = 0; i < qty; i++) {
+            const fd = new FormData();
+            fd.append('action', 'tambah');
+            fd.append('id_menu', id);
+            fd.append('custom_nama', nama); 
+            fd.append('ajax', '1');
 
-        fetch('keranjang.php', {
-            method: 'POST',
-            body: fd
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                updateCartBadge(data.total_qty);
-            }
-        })
-        .catch(err => console.error('Gagal tambah ke keranjang:', err));
+            fetch('keranjang.php', {
+                method: 'POST',
+                body: fd
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    updateCartBadge(data.total_qty);
+                }
+            })
+            .catch(err => console.error('Gagal tambah:', err));
+        }
     }
 
-    // =========================
-    // Update Badge Counter di Bottom Nav
-    // =========================
     function updateCartBadge(qty) {
         const badge = document.getElementById('cartBadge');
         if (!badge) return;
@@ -999,9 +1179,6 @@ if (!$query) {
         }
     }
 
-    // =========================
-    // Load Badge saat halaman dibuka
-    // =========================
     fetch('keranjang.php?count=1')
         .then(res => res.json())
         .then(data => {

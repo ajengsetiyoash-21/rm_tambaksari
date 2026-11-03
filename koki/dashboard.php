@@ -8,16 +8,22 @@ if (!isset($_SESSION['status']) || $_SESSION['status'] != "login" || ($_SESSION[
     exit;
 }
 
-// Mengubah status memasak
+// Mengubah status memasak (seluruh item dalam satu pesanan)
 if (isset($_POST['ubah_status'])) {
-    $id_detail   = (int) ($_POST['id_detail'] ?? 0);
+    $id_pesanan  = (int) ($_POST['id_pesanan'] ?? 0);
     $status_baru = $_POST['status_baru'] ?? '';
 
-    $status_valid = ['dimasak', 'selesai'];
+    $up = null;
+    if ($id_pesanan > 0) {
+        if ($status_baru === 'dimasak') {
+            $up = mysqli_prepare($db, "UPDATE detail_pesanan SET status_memasak = 'dimasak' WHERE id_pesanan = ? AND status_memasak = 'antre'");
+        } elseif ($status_baru === 'selesai') {
+            $up = mysqli_prepare($db, "UPDATE detail_pesanan SET status_memasak = 'selesai' WHERE id_pesanan = ? AND status_memasak IN ('antre', 'dimasak')");
+        }
+    }
 
-    if ($id_detail > 0 && in_array($status_baru, $status_valid, true)) {
-        $up = mysqli_prepare($db, "UPDATE detail_pesanan SET status_memasak = ? WHERE id_detail = ?");
-        mysqli_stmt_bind_param($up, "si", $status_baru, $id_detail);
+    if ($up) {
+        mysqli_stmt_bind_param($up, "i", $id_pesanan);
         $update = mysqli_stmt_execute($up);
         mysqli_stmt_close($up);
 
@@ -31,23 +37,32 @@ if (isset($_POST['ubah_status'])) {
     exit;
 }
 
-// Ringkasan status memasak (1 query)
+// Ringkasan status memasak per PESANAN (1 query)
 $jumlah = ['antre' => 0, 'dimasak' => 0, 'selesai' => 0];
 $q_ringkasan = mysqli_query($db, "
-    SELECT status_memasak, COUNT(*) AS jumlah
+    SELECT
+        id_pesanan,
+        COUNT(*) AS total,
+        SUM(status_memasak = 'dimasak') AS n_dimasak,
+        SUM(status_memasak IN ('selesai', 'diantar')) AS n_selesai
     FROM detail_pesanan
-    GROUP BY status_memasak
+    GROUP BY id_pesanan
 ");
 if (!$q_ringkasan) {
     die("Gagal mengambil ringkasan.");
 }
 while ($r = mysqli_fetch_assoc($q_ringkasan)) {
-    if (isset($jumlah[$r['status_memasak']])) {
-        $jumlah[$r['status_memasak']] = (int)$r['jumlah'];
+    // 'diantar' juga dihitung selesai dimasak
+    if ((int)$r['n_selesai'] === (int)$r['total']) {
+        $jumlah['selesai']++;
+    } elseif ((int)$r['n_dimasak'] > 0 || (int)$r['n_selesai'] > 0) {
+        $jumlah['dimasak']++;
+    } else {
+        $jumlah['antre']++;
     }
 }
 
-// Ambil daftar pesanan dapur
+// Ambil pesanan dapur yang belum selesai (semua item di dalamnya ikut diambil)
 $query_pesanan = mysqli_query($db, "
     SELECT
         dp.id_detail,
@@ -61,16 +76,39 @@ $query_pesanan = mysqli_query($db, "
     JOIN pesanan p  ON dp.id_pesanan = p.id_pesanan
     JOIN menu mn    ON dp.id_menu = mn.id_menu
     JOIN meja m     ON p.id_meja = m.id_meja
-    WHERE dp.status_memasak IN ('antre', 'dimasak')
-    ORDER BY p.created_at ASC, dp.id_detail ASC
+    WHERE dp.id_pesanan IN (
+        SELECT id_pesanan FROM detail_pesanan WHERE status_memasak IN ('antre', 'dimasak')
+    )
+    ORDER BY p.created_at ASC, p.id_pesanan ASC, dp.id_detail ASC
 ");
 if (!$query_pesanan) {
     die("Gagal mengambil data pesanan.");
 }
-$pesanan = [];
+
+$pesanan = [];   // key = id_pesanan
 while ($row = mysqli_fetch_assoc($query_pesanan)) {
-    $pesanan[] = $row;
+    $id = (int)$row['id_pesanan'];
+    if (!isset($pesanan[$id])) {
+        $pesanan[$id] = [
+            'id_pesanan' => $id,
+            'nomor_meja' => $row['nomor_meja'],
+            'created_at' => $row['created_at'],
+            'items'      => [],
+            'status'     => 'antre',
+        ];
+    }
+    $pesanan[$id]['items'][] = $row;
 }
+
+// Status per pesanan: antre (belum ada yang dimasak) / dimasak (sudah mulai)
+foreach ($pesanan as &$p) {
+    $mulai = false;
+    foreach ($p['items'] as $it) {
+        if ($it['status_memasak'] !== 'antre') { $mulai = true; break; }
+    }
+    $p['status'] = $mulai ? 'dimasak' : 'antre';
+}
+unset($p);
 
 // Helper
 function ico($id, $cls = 'i') { return '<svg class="' . $cls . '" aria-hidden="true"><use href="#i-' . $id . '"/></svg>'; }
@@ -177,7 +215,7 @@ a { color: inherit; text-decoration: none; }
 .ph h2 { font-size: 18px; font-weight: 800; color: var(--ink); }
 .ph .count { font-size: 13px; color: var(--muted); font-weight: 600; }
 
-.tickets { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; list-style: none; }
+.tickets { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; list-style: none; align-items: start; }
 .t { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .t.masak { border-color: #b9d2f6; }
 .t .row1 { display: flex; align-items: center; gap: 12px; }
@@ -193,9 +231,14 @@ a { color: inherit; text-decoration: none; }
 .badge.antre   { background: var(--amber-bg); color: var(--amber); }
 .badge.dimasak { background: var(--blue-bg); color: var(--blue); }
 
-.t .menu { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.t .menu b { font-size: 18px; font-weight: 800; color: var(--ink); line-height: 1.25; overflow-wrap: anywhere; }
-.qty { flex: none; background: var(--ink); color: #fff; border-radius: 12px; padding: 6px 12px; font-size: 16px; font-weight: 800; }
+/* Daftar menu dalam satu pesanan */
+.items { list-style: none; display: grid; gap: 8px; }
+.items li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #faf7f7; border-radius: 12px; }
+.items li b { font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.25; overflow-wrap: anywhere; }
+.items li.ok b { text-decoration: line-through; color: var(--muted); }
+
+.qty { flex: none; background: var(--ink); color: #fff; border-radius: 12px; padding: 4px 10px; font-size: 14px; font-weight: 800; }
+.items li.ok .qty { background: #8a8184; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 13px 18px; border-radius: 14px; font-size: 15px; font-weight: 800; border: 0; cursor: pointer; font-family: inherit; color: #fff; }
 .btn.mulai   { background: #b7791f; }
@@ -310,7 +353,7 @@ a { color: inherit; text-decoration: none; }
         <div class="notif no" role="alert"><?= ico('alert'); ?> Status pesanan gagal diperbarui.</div>
     <?php endif; ?>
 
-    <!-- RINGKASAN -->
+    <!-- RINGKASAN (per pesanan) -->
     <section class="sum">
         <div class="s a"><small><?= ico('hourglass', 'i sm'); ?> Antre</small><b><?= $jumlah['antre']; ?></b></div>
         <div class="s b"><small><?= ico('flame', 'i sm'); ?> Dimasak</small><b><?= $jumlah['dimasak']; ?></b></div>
@@ -320,32 +363,36 @@ a { color: inherit; text-decoration: none; }
     <!-- ANTREAN -->
     <div class="ph">
         <h2>Antrean pesanan dapur</h2>
-        <span class="count"><?= count($pesanan); ?> menu</span>
+        <span class="count"><?= count($pesanan); ?> pesanan</span>
     </div>
 
     <?php if (count($pesanan) > 0): ?>
     <ul class="tickets">
-        <?php foreach ($pesanan as $d):
-            $antre = ($d['status_memasak'] == 'antre');
-            [$lama_teks, $lama_menit] = sudah_berapa_lama($d['created_at']);
+        <?php foreach ($pesanan as $p):
+            $antre = ($p['status'] === 'antre');
+            [$lama_teks, $lama_menit] = sudah_berapa_lama($p['created_at']);
         ?>
         <li class="t <?= $antre ? '' : 'masak'; ?>">
             <div class="row1">
-                <div class="mj"><div><small>MEJA</small><b><?= htmlspecialchars((string)$d['nomor_meja']); ?></b></div></div>
+                <div class="mj"><div><small>MEJA</small><b><?= htmlspecialchars((string)$p['nomor_meja']); ?></b></div></div>
                 <div class="info">
-                    <span>Pesanan #<?= (int)$d['id_pesanan']; ?></span>
-                    <em class="<?= $lama_menit >= 15 ? 'lama' : ''; ?>"><?= ico('clock', 'i sm'); ?> <?= $lama_teks; ?> &middot; <?= date('H:i', strtotime($d['created_at'])); ?></em>
+                    <span>Pesanan #<?= (int)$p['id_pesanan']; ?></span>
+                    <em class="<?= $lama_menit >= 15 ? 'lama' : ''; ?>"><?= ico('clock', 'i sm'); ?> <?= $lama_teks; ?> &middot; <?= date('H:i', strtotime($p['created_at'])); ?></em>
                 </div>
                 <span class="badge <?= $antre ? 'antre' : 'dimasak'; ?>"><?= $antre ? 'Antre' : 'Dimasak'; ?></span>
             </div>
 
-            <div class="menu">
-                <b><?= htmlspecialchars($d['nama_menu']); ?></b>
-                <span class="qty">&times;<?= (int)$d['jumlah']; ?></span>
-            </div>
+            <ul class="items">
+                <?php foreach ($p['items'] as $it): ?>
+                <li class="<?= $it['status_memasak'] === 'selesai' ? 'ok' : ''; ?>">
+                    <b><?= htmlspecialchars($it['nama_menu']); ?></b>
+                    <span class="qty">&times;<?= (int)$it['jumlah']; ?></span>
+                </li>
+                <?php endforeach; ?>
+            </ul>
 
             <form method="POST">
-                <input type="hidden" name="id_detail" value="<?= (int)$d['id_detail']; ?>">
+                <input type="hidden" name="id_pesanan" value="<?= (int)$p['id_pesanan']; ?>">
                 <?php if ($antre): ?>
                     <input type="hidden" name="status_baru" value="dimasak">
                     <button type="submit" name="ubah_status" class="btn mulai"><?= ico('flame', 'i sm'); ?> Mulai masak</button>
