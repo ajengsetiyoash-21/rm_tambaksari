@@ -3,6 +3,13 @@ session_start();
 include "../config.php";
 
 // =========================
+// AMBIL NOMOR MEJA DARI SESSION
+// =========================
+// Mengambil dari session 'meja' yang diset oleh index.php
+$id_meja = isset($_SESSION['meja']) ? $_SESSION['meja'] : '1'; 
+$display_meja = str_pad($id_meja, 2, '0', STR_PAD_LEFT);
+
+// =========================
 // INISIALISASI KERANJANG
 // =========================
 if (!isset($_SESSION['keranjang'])) {
@@ -50,7 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    header('Location: keranjang.php');
+    // Redirect dengan membawa parameter meja agar tidak hilang
+    header('Location: keranjang.php?meja=' . urlencode($id_meja));
     exit;
 }
 
@@ -86,7 +94,6 @@ if (!empty($_SESSION['keranjang'])) {
 $tax = round($total * 0.10);
 $service = $total > 0 ? 2000 : 0;
 $grand_total = $total + $tax + $service;
-$id_meja = $_SESSION['id_meja'] ?? 1;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -421,7 +428,8 @@ $id_meja = $_SESSION['id_meja'] ?? 1;
 
 <header class="topbar">
     <div class="topbar-inner">
-        <a href="index.php" class="btn-back" aria-label="Kembali">
+        <!-- Link Kembali membawa parameter meja -->
+        <a href="index.php?meja=<?= urlencode($id_meja); ?>" class="btn-back" aria-label="Kembali">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </a>
         <h1>Keranjang</h1>
@@ -445,7 +453,8 @@ $id_meja = $_SESSION['id_meja'] ?? 1;
                     <div class="resto-name">RM. Tambaksari</div>
                     <div class="resto-sub">Makan di tempat</div>
                 </div>
-                <div class="meja-chip">Meja <?= htmlspecialchars($id_meja); ?></div>
+                <!-- Menampilkan nomor meja dinamis (2 digit) -->
+                <div class="meja-chip">Meja <?= htmlspecialchars($display_meja); ?></div>
             </div>
         </div>
 
@@ -481,7 +490,8 @@ $id_meja = $_SESSION['id_meja'] ?? 1;
             <?php endforeach; ?>
             </div>
 
-            <a href="index.php" class="btn-more">
+            <!-- Link Tambah Menu Lagi membawa parameter meja -->
+            <a href="index.php?meja=<?= urlencode($id_meja); ?>" class="btn-more">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Tambah menu lagi
             </a>
@@ -502,7 +512,8 @@ $id_meja = $_SESSION['id_meja'] ?? 1;
                 <small>Total bayar</small>
                 <strong>Rp<span id="barTotal"><?= number_format($grand_total, 0, ',', '.'); ?></span></strong>
             </div>
-            <a href="checkout.php" class="btn-primary">Checkout (<span id="barQty"><?= $total_qty; ?></span>)</a>
+            <!-- Tombol Checkout membawa parameter meja -->
+            <a href="checkout.php?meja=<?= urlencode($id_meja); ?>" class="btn-primary">Checkout (<span id="barQty"><?= $total_qty; ?></span>)</a>
         </div>
     </div>
 
@@ -512,7 +523,8 @@ $id_meja = $_SESSION['id_meja'] ?? 1;
         <div class="empty-ic">🛒</div>
         <h3>Keranjang masih kosong</h3>
         <p>Pilih menu favoritmu dulu,<br>lalu kembali ke sini untuk checkout.</p>
-        <a href="index.php" class="btn-primary" style="display:inline-block;">Lihat menu</a>
+        <!-- Link Lihat Menu membawa parameter meja -->
+        <a href="index.php?meja=<?= urlencode($id_meja); ?>" class="btn-primary" style="display:inline-block;">Lihat menu</a>
     </div>
 
 </div>

@@ -6,56 +6,64 @@ include "../config.php";
 // AMBIL ID USER DARI SESSION
 // =========================
 $id_user = $_SESSION['id_user'] ?? 0;
+$last_order_id = $_SESSION['last_order_id'] ?? 0;
 
 // =========================
 // AMBIL DATA PESANAN
 // =========================
 $pesanan_list = [];
 
-if ($id_user > 0) {
-    // Kalau user login → tampilkan pesanan miliknya
+// Prioritas: Jika guest (tidak login), ambil berdasarkan last_order_id
+if ($last_order_id > 0) {
     $q = mysqli_query($db, "
         SELECT 
-            p.*,
+            p.*, 
             m.nomor_meja,
             GROUP_CONCAT(DISTINCT dp.status_memasak) AS status_memasak
         FROM pesanan p
         LEFT JOIN meja m ON p.id_meja = m.id_meja
         LEFT JOIN detail_pesanan dp ON p.id_pesanan = dp.id_pesanan
-        WHERE p.id_user = $id_user
+        WHERE p.id_pesanan = '$last_order_id'
+        GROUP BY p.id_pesanan
+    ");
+} 
+// Jika login, ambil berdasarkan id_user
+elseif ($id_user > 0) {
+    $q = mysqli_query($db, "
+        SELECT 
+            p.*, 
+            m.nomor_meja,
+            GROUP_CONCAT(DISTINCT dp.status_memasak) AS status_memasak
+        FROM pesanan p
+        LEFT JOIN meja m ON p.id_meja = m.id_meja
+        LEFT JOIN detail_pesanan dp ON p.id_pesanan = dp.id_pesanan
+        WHERE p.id_user = '$id_user'
         GROUP BY p.id_pesanan
         ORDER BY p.created_at DESC
         LIMIT 10
     ");
 } else {
-    // Kalau tidak login → tampilkan 5 pesanan terbaru (guest)
-    $q = mysqli_query($db, "
-        SELECT 
-            p.*,
-            m.nomor_meja,
-            GROUP_CONCAT(DISTINCT dp.status_memasak) AS status_memasak
-        FROM pesanan p
-        LEFT JOIN meja m ON p.id_meja = m.id_meja
-        LEFT JOIN detail_pesanan dp ON p.id_pesanan = dp.id_pesanan
-        GROUP BY p.id_pesanan
-        ORDER BY p.created_at DESC
-        LIMIT 5
-    ");
+    // Jika tidak ada session dan tidak login, jangan tampilkan apa-apa
+    $q = false;
 }
 
 if ($q) {
     while ($row = mysqli_fetch_assoc($q)) {
-        // Ambil detail menu
         $id_p = $row['id_pesanan'];
+        
+        // Ambil detail menu untuk setiap pesanan
         $q_d = mysqli_query($db, "
-            SELECT dp.*, mn.nama_menu 
-            FROM detail_pesanan dp 
+            SELECT dp.*, mn.nama_menu
+            FROM detail_pesanan dp
             LEFT JOIN menu mn ON mn.id_menu = dp.id_menu
             WHERE dp.id_pesanan = $id_p
         ");
+        
         $items = [];
-        while ($d = mysqli_fetch_assoc($q_d)) {
-            $items[] = $d;
+        if ($q_d) {
+            while ($d = mysqli_fetch_assoc($q_d)) {
+                $items[] = $d;
+            }
         }
         $row['items'] = $items;
         $pesanan_list[] = $row;
@@ -63,14 +71,12 @@ if ($q) {
 }
 
 // =========================
-// HELPER: TENTUKAN STAGE PESANAN
+// FUNGSI BANTU: TENTUKAN TAHAP STATUS
 // =========================
 function getStage($status_masak, $status_bayar) {
-    // Ambil status paling "maju" dari semua item
     $statuses = $status_masak ? explode(',', $status_masak) : ['antre'];
     $statuses = array_map('trim', $statuses);
 
-    // Prioritas status
     $prioritas = ['antre' => 1, 'dimasak' => 2, 'selesai' => 3, 'diantar' => 4];
     $max = 1;
     foreach ($statuses as $s) {
@@ -79,11 +85,10 @@ function getStage($status_masak, $status_bayar) {
         }
     }
 
-    // Kalau sudah lunas → selesai
+    // Jika sudah lunas dan diantar, anggap selesai (tahap 5)
     if ($status_bayar === 'lunas' && $max >= 4) {
-        return 5; // Selesai total
+        return 5;
     }
-
     return $max;
 }
 ?>
@@ -125,8 +130,8 @@ function getStage($status_masak, $status_bayar) {
             --border: #e6d4b0;
             --success: #2d6a4f;
             --success-soft: #d1fae5;
-            --warn: #d97706;
-            --warn-soft: #fef3c7;
+            --warning: #d97706;
+            --warning-soft: #fef3c7;
             --info: #0284c7;
             --info-soft: #e0f2fe;
         }
@@ -144,9 +149,7 @@ function getStage($status_masak, $status_bayar) {
             min-height: 100vh;
         }
 
-        /* =========================
-           HEADER
-        ========================= */
+        /* HEADER */
         .header {
             position: relative;
             background: linear-gradient(150deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
@@ -243,9 +246,7 @@ function getStage($status_masak, $status_bayar) {
             to { transform: rotate(360deg); }
         }
 
-        /* =========================
-           SUMMARY
-        ========================= */
+        /* RINGKASAN */
         .summary-wrap {
             padding: 0 22px;
             margin-top: -42px;
@@ -314,9 +315,7 @@ function getStage($status_masak, $status_bayar) {
             color: var(--primary);
         }
 
-        /* =========================
-           SECTION
-        ========================= */
+        /* SECTION */
         .section-head {
             padding: 22px 22px 4px 22px;
         }
@@ -328,9 +327,7 @@ function getStage($status_masak, $status_bayar) {
             font-weight: 800;
         }
 
-        /* =========================
-           ORDER CARD
-        ========================= */
+        /* KARTU PESANAN */
         .order-list {
             padding: 12px 22px 30px 22px;
             display: flex;
@@ -385,34 +382,13 @@ function getStage($status_masak, $status_bayar) {
             white-space: nowrap;
         }
 
-        .order-badge.antre {
-            background: var(--warn-soft);
-            color: #92400e;
-        }
+        .order-badge.antre { background: var(--warning-soft); color: #92400e; }
+        .order-badge.dimasak { background: #fee2e2; color: #991b1b; }
+        .order-badge.selesai { background: var(--success-soft); color: var(--success); }
+        .order-badge.diantar { background: var(--info-soft); color: var(--info); }
+        .order-badge.lunas { background: #dcfce7; color: #166534; }
 
-        .order-badge.dimasak {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .order-badge.selesai {
-            background: var(--success-soft);
-            color: var(--success);
-        }
-
-        .order-badge.diantar {
-            background: var(--info-soft);
-            color: var(--info);
-        }
-
-        .order-badge.lunas {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        /* =========================
-           TIMELINE / STEPPER
-        ========================= */
+        /* TIMELINE */
         .timeline {
             display: flex;
             align-items: center;
@@ -437,7 +413,7 @@ function getStage($status_masak, $status_bayar) {
             z-index: 0;
         }
 
-        .step.done:not(:last-child)::after {
+        .step.selesai:not(:last-child)::after {
             background: var(--success);
         }
 
@@ -458,15 +434,15 @@ function getStage($status_masak, $status_bayar) {
             font-weight: 800;
         }
 
-        .step.done .circle {
+        .step.selesai .circle {
             background: var(--success);
             border-color: var(--success);
             color: white;
         }
 
-        .step.active .circle {
-            background: var(--warn);
-            border-color: var(--warn);
+        .step.aktif .circle {
+            background: var(--warning);
+            border-color: var(--warning);
             color: white;
             animation: pulse 1.5s infinite;
         }
@@ -483,14 +459,12 @@ function getStage($status_masak, $status_bayar) {
             line-height: 1.2;
         }
 
-        .step.done .label,
-        .step.active .label {
+        .step.selesai .label,
+        .step.aktif .label {
             color: var(--primary);
         }
 
-        /* =========================
-           ORDER ITEMS
-        ========================= */
+        /* ITEM PESANAN */
         .order-items {
             padding: 12px 0;
             border-top: 1px dashed var(--border);
@@ -513,14 +487,8 @@ function getStage($status_masak, $status_bayar) {
             color: var(--text);
         }
 
-        .order-item-line .name {
-            font-weight: 600;
-        }
-
-        .order-item-line .qty {
-            color: var(--text-muted);
-            font-weight: 500;
-        }
+        .order-item-line .name { font-weight: 600; }
+        .order-item-line .qty { color: var(--text-muted); font-weight: 500; }
 
         .order-total {
             display: flex;
@@ -534,9 +502,7 @@ function getStage($status_masak, $status_bayar) {
             color: var(--primary);
         }
 
-        /* =========================
-           EMPTY
-        ========================= */
+        /* EMPTY STATE */
         .empty-state {
             text-align: center;
             padding: 60px 30px;
@@ -587,9 +553,7 @@ function getStage($status_masak, $status_bayar) {
             box-shadow: 0 6px 18px rgba(61, 40, 23, 0.3);
         }
 
-        /* =========================
-           BOTTOM NAV
-        ========================= */
+        /* BOTTOM NAV */
         .bottom-nav {
             position: fixed;
             bottom: 14px;
@@ -674,15 +638,15 @@ function getStage($status_masak, $status_bayar) {
                 <polyline points="23 4 23 10 17 10"></polyline>
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
             </svg>
-            Refresh
+            Menyegarkan
         </button>
     </div>
 </header>
 
-<!-- SUMMARY -->
+<!-- RINGKASAN -->
 <div class="summary-wrap">
     <div class="summary-card">
-        <div class="summary-label">Total Pesanan</div>
+        <div class="summary-label">Jumlah Pesanan</div>
         <div class="summary-total">
             <span class="cur">Total</span>
             <?= count($pesanan_list); ?> Pesanan
@@ -700,18 +664,17 @@ function getStage($status_masak, $status_bayar) {
     </div>
 </div>
 
-<!-- SECTION -->
+<!-- BAGIAN -->
 <div class="section-head">
     <h2>Daftar Pesanan</h2>
 </div>
 
-<!-- ORDER LIST -->
+<!-- DAFTAR PESANAN -->
 <?php if (!empty($pesanan_list)) : ?>
     <div class="order-list">
         <?php foreach ($pesanan_list as $p) :
             $stage = getStage($p['status_memasak'], $p['status_bayar']);
             
-            // Label status utama
             $stage_label = ['antre' => 'ANTRE', 'dimasak' => 'DIMASAK', 'selesai' => 'SIAP', 'diantar' => 'DIANTAR', 'lunas' => 'SELESAI'];
             $status_keys = ['antre', 'dimasak', 'selesai', 'diantar', 'lunas'];
             $current_status = $status_keys[$stage - 1] ?? 'antre';
@@ -723,7 +686,7 @@ function getStage($status_masak, $status_bayar) {
                             Pesanan #<?= str_pad($p['id_pesanan'], 3, '0', STR_PAD_LEFT); ?>
                         </div>
                         <div class="order-meta">
-                            🪑 Meja <?= htmlspecialchars($p['nomor_meja'] ?? '-'); ?> 
+                            🪑 Meja <?= htmlspecialchars($p['nomor_meja'] ?? '-'); ?>
                             • <?= date('d M, H:i', strtotime($p['created_at'])); ?>
                         </div>
                     </div>
@@ -734,31 +697,31 @@ function getStage($status_masak, $status_bayar) {
 
                 <!-- TIMELINE -->
                 <div class="timeline">
-                    <div class="step <?= $stage >= 1 ? 'done' : ''; ?> <?= $stage == 1 ? 'active' : ''; ?>">
+                    <div class="step <?= $stage >= 1 ? 'selesai' : ''; ?> <?= $stage == 1 ? 'aktif' : ''; ?>">
                         <div class="circle"><?= $stage > 1 ? '✓' : '1'; ?></div>
                         <div class="label">Dipesan</div>
                     </div>
-                    <div class="step <?= $stage >= 2 ? 'done' : ''; ?> <?= $stage == 2 ? 'active' : ''; ?>">
+                    <div class="step <?= $stage >= 2 ? 'selesai' : ''; ?> <?= $stage == 2 ? 'aktif' : ''; ?>">
                         <div class="circle"><?= $stage > 2 ? '✓' : '2'; ?></div>
                         <div class="label">Dimasak</div>
                     </div>
-                    <div class="step <?= $stage >= 3 ? 'done' : ''; ?> <?= $stage == 3 ? 'active' : ''; ?>">
+                    <div class="step <?= $stage >= 3 ? 'selesai' : ''; ?> <?= $stage == 3 ? 'aktif' : ''; ?>">
                         <div class="circle"><?= $stage > 3 ? '✓' : '3'; ?></div>
                         <div class="label">Siap</div>
                     </div>
-                    <div class="step <?= $stage >= 4 ? 'done' : ''; ?> <?= $stage == 4 ? 'active' : ''; ?>">
+                    <div class="step <?= $stage >= 4 ? 'selesai' : ''; ?> <?= $stage == 4 ? 'aktif' : ''; ?>">
                         <div class="circle"><?= $stage > 4 ? '✓' : '4'; ?></div>
                         <div class="label">Diantar</div>
                     </div>
-                    <div class="step <?= $stage >= 5 ? 'done' : ''; ?> <?= $stage == 5 ? 'active' : ''; ?>">
+                    <div class="step <?= $stage >= 5 ? 'selesai' : ''; ?> <?= $stage == 5 ? 'aktif' : ''; ?>">
                         <div class="circle"><?= $stage >= 5 ? '✓' : '5'; ?></div>
                         <div class="label">Selesai</div>
                     </div>
                 </div>
 
-                <!-- ITEMS -->
+                <!-- ITEM -->
                 <div class="order-items">
-                    <div class="order-items-title">Detail Menu</div>
+                    <div class="order-items-title">Menu Detail</div>
                     <?php foreach ($p['items'] as $it) : ?>
                         <div class="order-item-line">
                             <span class="name"><?= htmlspecialchars($it['nama_menu'] ?? 'Menu #' . $it['id_menu']); ?></span>
@@ -778,7 +741,7 @@ function getStage($status_masak, $status_bayar) {
     <div class="empty-state">
         <div class="empty-icon">📋</div>
         <h3>Belum Ada Pesanan</h3>
-        <p>Anda belum membuat pesanan apapun.<br>Silakan pilih menu favorit Anda terlebih dahulu.</p>
+        <p>Anda belum membuat pesanan apa pun.<br>Silakan pilih menu favorit Anda terlebih dahulu.</p>
         <a href="index.php" class="btn-explore">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -818,13 +781,13 @@ function getStage($status_masak, $status_bayar) {
 </div>
 
 <script>
-    // Auto-refresh tiap 15 detik
+    // Auto refresh setiap 15 detik
     setInterval(() => {
-        console.log('🔄 Auto-refresh status...');
+        console.log('🔄 Status diperbarui secara otomatis...');
         window.location.reload();
     }, 15000);
 
-    // Manual refresh dengan animasi
+    // Refresh manual dengan animasi
     function refreshPage() {
         const btn = document.getElementById('refreshBtn');
         btn.classList.add('spinning');
