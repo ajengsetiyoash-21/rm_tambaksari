@@ -655,9 +655,9 @@ $tanggal_formatted = date('d M Y, H:i', strtotime($pesanan['created_at']));
                 </svg>
             </div>
             <h1>RM. TAMBAKSARI</h1>
-            <div class="tagline">RASA AUTENTIK SEJAK 1990</div>
+            <div class="tagline">RASA AUTENTIK SEJAK 2024</div>
             <div class="address">
-                Jl. Tambaksari No. 88, Surabaya<br>
+                Area Tambak, Loireng, Kec. Sayung, Kabupaten Demak, Jawa Tengah 59563<br>
                 Telp: (031) 555-1990
             </div>
         </div>
